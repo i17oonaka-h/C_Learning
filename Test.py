@@ -12,7 +12,8 @@ import Framework as frk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
-# global program_codelist
+# global hensu
+program_codelist = None # open_file内でのみ値は変更されます．
 
 def main():
 
@@ -69,11 +70,17 @@ def main():
     btn_play_back["command"] = up_syntax(program_labels)
     btn_play_back.layout = "5,21,1,2"
 
-    # 1.3 停止ボタンの設定
+    # 1.3 プログラム上昇ボタンの設定
     btn_play_stop = frk.ButtonK()
-    btn_play_stop["text"] = "‖"
+    btn_play_stop["text"] = "▲"
     btn_play_stop["command"] = root.destroy
-    btn_play_stop.layout = "6,21,1,2"
+    btn_play_stop.layout = "6,21,1,1"
+
+    # 1.4 プログラム下降ボタンの設定
+    btn_play_stop = frk.ButtonK()
+    btn_play_stop["text"] = "▼"
+    btn_play_stop["command"] = root.destroy
+    btn_play_stop.layout = "6,22,1,1"
 
     # ファイル読み込みボタンの設定
     btn_file_open = frk.ButtonK()
@@ -93,14 +100,17 @@ def main():
     # メインループ
     root.mainloop()
 
-#### コードセット
+#### 関数セット
 
 def make_trace_fig(Trace_data,Change_data,type_name,hensu_name,value):
     #Trace_data
     Trace_data["text"] = "{} {}\n {}",format(type_name,hensu_name,value)
     Trace_data.layout = ""
     
-        
+def up_code(program_labels):
+    for i in range(20):
+        if len(program_codelist) > 20:
+            program_labels[i]["text"] = program_codelist[i]
 
 ## コード表示のsyntax遷移
 def down_syntax(program_labels):
