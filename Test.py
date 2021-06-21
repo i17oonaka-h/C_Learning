@@ -104,7 +104,7 @@ def main():
 
 def make_trace_fig(Trace_data,Change_data,type_name,hensu_name,value):
     #Trace_data
-    Trace_data["text"] = "{} {}\n {}",format(type_name,hensu_name,value)
+    Trace_data["text"] = "{} {}\n {}".format(type_name,hensu_name,value)
     Trace_data.layout = ""
     
 def up_code(program_labels):
