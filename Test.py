@@ -1,19 +1,11 @@
 # -*- coding: utf-8 -*-
-
-#### インポート
-import os
 import tkinter as tk
 import tkinter.ttk as ttk
-from typing_extensions import TypeAlias
-import openpyxl as px
-import subprocess
-
 import Framework as frk
-
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
-# global hensu
+### global hensu ###
 program_codelist = [] # open_file内でのみ値は変更されます．
 #### rootフレームの設定
 root = frk.FormK(24,20,0)
@@ -21,11 +13,8 @@ root.title("C-Learning")
 root.geometry("1000x600")
 root.result = tk.StringVar()
 
-
-
 def main():
-
-    # スタイル設定
+    ### スタイル設定 ###
     style = ttk.Style() 
     style.configure('TButton', font = 
                ('calibri', 20, 'bold'),
@@ -34,9 +23,7 @@ def main():
          , foreground = [('active', '!disabled', 'green')]
          , background = [('active', 'black')]
          ) 
-
-
-    # プログラム表示部分のラベルの生成
+    ### プログラム表示部分のラベルの生成 ###
     program_labels = []
     for i in range(20):
         program_labels.append(frk.LabelK())
@@ -48,9 +35,7 @@ def main():
             program_labels[i]["bg"] = "#ffffff"
         program_labels[i]["anchor"] = "nw"
         program_labels[i].layout = "1,{},10,1".format(i+1)
-
-
-    # トレース図の生成(program progress)
+    ### トレース図の生成(program progress) ###
     """
     trace_list has 4 values.
     0:type_label
@@ -82,9 +67,7 @@ def main():
     trace_list.append(arrowConst) #4
     for j in range(4):
         trace_list[j]["font"] = ("Arial", 16)
-
-
-    #定義済みの関数を保管するラベルの定義
+    ### 定義済みの関数を保管するラベルの定義 ###
     """
     exist_list has 3 values.
     0:name_label
@@ -104,8 +87,7 @@ def main():
             c.append(b)
             c.append(used_flag)
             exist_list.append(c)
-    
-    ### 不変なオブジェクトの設定
+    ### 不変なオブジェクトの設定 ###
     # 再生ボタンの設定
     btnPlay = frk.ButtonK()
     btnPlay["text"] = "▶︎"
@@ -144,14 +126,12 @@ def main():
     trace_label["relief"] = "groove"
     trace_label["bg"] = "#d7d7ff"
 
-
     #オブジェクトをレイアウト通りに配置する
     root.set_layout()
     # メインループ
     root.mainloop()
 
-#### 関数セット
-    
+#### 関数セット   
 def up_code(program_labels_trace_fig):
     """
     表示範囲を超える行数のプログラムの行を管理します．(未実装)
@@ -165,7 +145,15 @@ def label_cng(trace_list,index,clear_flag):
     """
     trace_listのテキストを変更します．
     index: プログラムの行に対応したindex
-    clear_flag: 1の場合非表示にします．(空行などで使用)
+    clear_flag: 1の場合非表示(何も表示しない状態)にします．(空行などで使用)
+
+    !!! !!!
+    trace_list has 4 values.
+    0:type_label
+    1:name_label
+    2:input_value_label
+    3:initial_value_label
+    !!! !!!
     """
     if clear_flag == 0:
         trace_list[2]["relief"] = "groove"
@@ -184,7 +172,7 @@ def label_cng(trace_list,index,clear_flag):
 
 def exist_cng(exist_list,index,clear_flag):
     """
-    exist valueの管理を行います．
+    定義済みの変数の管理を行います．
     label_cngと同じ要領．
     """
     if clear_flag == 0:
@@ -207,11 +195,10 @@ def exist_cng(exist_list,index,clear_flag):
                 exist_list[i][1]["text"] = " "
 
 
-"""
-syntaxの遷移を行います．
-down_syntax:program_labelのhighlightを1つ下へ変更します．
-up_syntax:program_labelのhighlightを1つ上へ変更します．
-"""
+
+### syntaxの遷移を行います． ###
+### down_syntax:program_labelのhighlightを1つ下へ変更します． ###
+### up_syntax:program_labelのhighlightを1つ上へ変更します． ###
 def down_syntax(program_labels,trace_list,exist_list):
     def x():
         for i in range(20):
@@ -280,10 +267,7 @@ def open_file(program_labels,trace_list):
                 a.append(" ")
                 a.append(" ")
                 a.append(" ")
-            program_codelist.append(a)
-
-                
-            
+            program_codelist.append(a)     
     return x
 
 
