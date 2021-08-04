@@ -1,12 +1,36 @@
 # -*- coding: utf-8 -*-
 import tkinter as tk
 import tkinter.ttk as ttk
+from typing import Text
 import Framework as frk
 from tkinter import ttk
+from dataclasses import dataclass, field
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
-### global hensu ###
-program_codelist = [] # open_file内でのみ値は変更されます．
+@dataclass
+class Trace:
+    labels: list = field(default_factory=list)
+    code: list = field(default_factory=list)
+    token: list = field(default_factory=list)
+    highest_view: int = 0
+    lowest_view: int = 19
+    """
+    trace_list has 5 values.
+    0:type
+    1:name
+    2:input_value
+    3:initial_value
+    4:arrow
+    """
+    trace_list: list = field(default_factory=list)
+    """
+    exist_list has 3 values.
+    0:name_label
+    1:initial_value_label
+    2:used_flag(occupied is 1. empty is 0.)
+    """
+    exist_list: list = field(default_factory=list)
+
 #### rootフレームの設定
 root = frk.FormK(24,20,0)
 root.title("C-Learning")
@@ -23,27 +47,19 @@ def main():
          , foreground = [('active', '!disabled', 'green')]
          , background = [('active', 'black')]
          ) 
-    ### プログラム表示部分のラベルの生成 ###
-    program_labels = []
+    ### プログラム表示部分の生成 ###
+    tc = Trace()
     for i in range(20):
-        program_labels.append(frk.LabelK())
-        program_labels[i]["font"] = ("Arial", 16)
-        program_labels[i]["text"] = "\n"
+        tc.labels.append(frk.LabelK())
+        tc.labels[i]["font"] = ("Arial", 16)
+        tc.labels[i]["text"] = "\n"
         if i == 0:
-            program_labels[i]["bg"] = "#ffff6d"
+            tc.labels[i]["bg"] = "#ffff6d"
         else:
-            program_labels[i]["bg"] = "#ffffff"
-        program_labels[i]["anchor"] = "nw"
-        program_labels[i].layout = "1,{},10,1".format(i+1)
+            tc.labels[i]["bg"] = "#ffffff"
+        tc.labels[i]["anchor"] = "nw"
+        tc.labels[i].layout = "1,{},10,1".format(i+1)
     ### トレース図の生成(program progress) ###
-    """
-    trace_list has 4 values.
-    0:type_label
-    1:name_label
-    2:input_value_label
-    3:initial_value_label
-    """
-    trace_list = []
     row = 12
     col = 5
     type_label = frk.LabelK() 
@@ -60,21 +76,11 @@ def main():
     input_value_label["relief"] = 'flat'
     type_label["anchor"] = "se"
     arrowConst["text"] = " "
-    trace_list.append(type_label) #0
-    trace_list.append(name_label) #1
-    trace_list.append(input_value_label) #2
-    trace_list.append(initial_value_label) #3
-    trace_list.append(arrowConst) #4
-    for j in range(4):
-        trace_list[j]["font"] = ("Arial", 16)
-    ### 定義済みの関数を保管するラベルの定義 ###
-    """
-    exist_list has 3 values.
-    0:name_label
-    1:initial_value_label
-    2:used_flag(occupied is 1. empty is 0.)
-    """
-    exist_list = []
+    tc.trace_list.append(type_label) #0
+    tc.trace_list.append(name_label) #1
+    tc.trace_list.append(input_value_label) #2
+    tc.trace_list.append(initial_value_label) #3
+    tc.trace_list.append(arrowConst) #4
     for i in range(1):
         for j in range(4):
             a = frk.LabelK()
@@ -86,32 +92,33 @@ def main():
             c.append(a)
             c.append(b)
             c.append(used_flag)
-            exist_list.append(c)
+            tc.exist_list.append(c)
+    
     ### 不変なオブジェクトの設定 ###
     # 再生ボタンの設定
     btnPlay = frk.ButtonK()
     btnPlay["text"] = "▶︎"
-    btnPlay["command"] = down_syntax(program_labels,trace_list,exist_list)
+    btnPlay["command"] = down_syntax(tc)
     btnPlay.layout = "7,21,1,2"
     # 巻き戻しボタンの設定
     btn_play_back = frk.ButtonK()
     btn_play_back["text"] = "◀︎"
-    btn_play_back["command"] = up_syntax(program_labels,trace_list,exist_list)
+    btn_play_back["command"] = up_syntax(tc)
     btn_play_back.layout = "5,21,1,2"
     # プログラム上昇ボタンの設定
     btn_play_stop = frk.ButtonK()
     btn_play_stop["text"] = "▲"
-    btn_play_stop["command"] = root.destroy
+    btn_play_stop["command"] = up_code(tc)
     btn_play_stop.layout = "6,21,1,1"
     # プログラム下降ボタンの設定
     btn_play_stop = frk.ButtonK()
     btn_play_stop["text"] = "▼"
-    btn_play_stop["command"] = root.destroy
+    btn_play_stop["command"] = down_code(tc)
     btn_play_stop.layout = "6,22,1,1"
     # ファイル読み込みボタンの設定
     btn_file_open = frk.ButtonK()
     btn_file_open["text"] = "file open"
-    btn_file_open["command"] = open_file(program_labels,trace_list)
+    btn_file_open["command"] = open_file(tc)
     btn_file_open.layout = "1,21,3,1"
     # exist value の表示
     exist_label = frk.LabelK()
@@ -131,17 +138,35 @@ def main():
     # メインループ
     root.mainloop()
 
-#### 関数セット   
-def up_code(program_labels_trace_fig):
+#### 関数セット
+def up_code(tc):
     """
     表示範囲を超える行数のプログラムの行を管理します．(未実装)
     """
-    for i in range(20):
-        if len(program_codelist) > 20:
-            program_labels_trace_fig[i]["text"] = program_codelist[i]
+    def x():
+        #tc.labelsの最上部がプログラムの1行目でないか．
+        if tc.highest_view != 0:
+            if len(tc.code)!=0:
+                tc.highest_view -= 1
+                tc.lowest_view -= 1
+                for i in range(20):
+                    tc.labels[i]["text"] = tc.code[tc.highest_view+i]
+    return x
 
+def down_code(tc):
+    """
+    表示範囲を超える行数のプログラムの行を管理します．(未実装)
+    """
+    def x():
+        #tc.labelsの最下部がプログラムの終行でないか．
+        if tc.lowest_view != len(tc.code)-1 and len(tc.code)!=0:
+            tc.highest_view += 1
+            tc.lowest_view += 1
+            for i in range(20):
+                tc.labels[i]["text"] = tc.code[tc.highest_view+i]
+    return x
 
-def label_cng(trace_list,index,clear_flag):
+def label_cng(tc,index,clear_flag):
     """
     trace_listのテキストを変更します．
     index: プログラムの行に対応したindex
@@ -156,87 +181,86 @@ def label_cng(trace_list,index,clear_flag):
     !!! !!!
     """
     if clear_flag == 0:
-        trace_list[2]["relief"] = "groove"
-        trace_list[3]["relief"] = "groove"
-        trace_list[4]["text"] = "⇦"
-        trace_list[0]["text"] = program_codelist[index][0]
-        trace_list[1]["text"] = program_codelist[index][1]
-        trace_list[2]["text"] = program_codelist[index][2]
+        tc.trace_list[2]["relief"] = "groove"
+        tc.trace_list[3]["relief"] = "groove"
+        tc.trace_list[4]["text"] = "⇦"
+        tc.trace_list[0]["text"] = tc.token[index][0]
+        tc.trace_list[1]["text"] = tc.token[index][1]
+        tc.trace_list[2]["text"] = tc.token[index][2]
     elif clear_flag == 1:
-        trace_list[2]["relief"] = "flat"
-        trace_list[3]["relief"] = "flat"
-        trace_list[4]["text"] = " "
-        trace_list[0]["text"] = program_codelist[index][0]
-        trace_list[1]["text"] = program_codelist[index][1]
-        trace_list[2]["text"] = program_codelist[index][2]
+        tc.trace_list[2]["relief"] = "flat"
+        tc.trace_list[3]["relief"] = "flat"
+        tc.trace_list[4]["text"] = " "
+        tc.trace_list[0]["text"] = tc.token[index][0]
+        tc.trace_list[1]["text"] = tc.token[index][1]
+        tc.trace_list[2]["text"] = tc.token[index][2]
 
-def exist_cng(exist_list,index,clear_flag):
+def exist_cng(tc,index,clear_flag):
     """
     定義済みの変数の管理を行います．
     label_cngと同じ要領．
     """
     if clear_flag == 0:
-        for i in range(len(exist_list)):
-            if exist_list[i][2] == 0:
-                exist_list[i][0]["text"] = program_codelist[index][1]
-                exist_list[i][1]["text"] = program_codelist[index][2]
-                exist_list[i][2] = 1
+        for i in range(len(tc.exist_list)):
+            if tc.exist_list[i][2] == 0:
+                tc.exist_list[i][0]["text"] = tc.token[index][1]
+                tc.exist_list[i][1]["text"] = tc.token[index][2]
+                tc.exist_list[i][2] = 1
                 return
-        for i in range(len(exist_list)):
-            exist_list[i][2] = 0
-        exist_list[0][2] = 1
-        exist_list[0][0]["text"] = program_codelist[index][1]
-        exist_list[0][1]["text"] = program_codelist[index][2]
+        for i in range(len(tc.exist_list)):
+            tc.exist_list[i][2] = 0
+        tc.exist_list[0][2] = 1
+        tc.exist_list[0][0]["text"] = tc.token[index][1]
+        tc.exist_list[0][1]["text"] = tc.token[index][2]
     elif clear_flag == 1:
-        for i in range(len(exist_list)):
-            if exist_list[i][0]["text"] == program_codelist[index][1]:
-                exist_list[i][2] = 0
-                exist_list[i][0]["text"] = " "
-                exist_list[i][1]["text"] = " "
+        for i in range(len(tc.exist_list)):
+            if tc.exist_list[i][0]["text"] == tc.token[index][1]:
+                tc.exist_list[i][2] = 0
+                tc.exist_list[i][0]["text"] = " "
+                tc.exist_list[i][1]["text"] = " "
 
 
 
 ### syntaxの遷移を行います． ###
 ### down_syntax:program_labelのhighlightを1つ下へ変更します． ###
 ### up_syntax:program_labelのhighlightを1つ上へ変更します． ###
-def down_syntax(program_labels,trace_list,exist_list):
+def down_syntax(tc):
     def x():
         for i in range(20):
-            if (program_labels[i]["bg"] == "#ffff6d") & (i != 19):
-                program_labels[i]["bg"] = "#ffffff"
-                program_labels[i+1]["bg"] = "#ffff6d"
-                if i+1 < len(program_codelist):
-                    if program_codelist[i+1][1] != " ":
-                        label_cng(trace_list,i+1,0)
-                        exist_cng(exist_list,i+1,0)
+            if (tc.labels[i]["bg"] == "#ffff6d") & (i != 19):
+                tc.labels[i]["bg"] = "#ffffff"
+                tc.labels[i+1]["bg"] = "#ffff6d"
+                if i+1 < len(tc.token):
+                    if tc.token[i+1][1] != " ":
+                        label_cng(tc,i+1,0)
+                        exist_cng(tc,i+1,0)
                     else:
-                        label_cng(trace_list,i+1,1)
+                        label_cng(tc,i+1,1)
                 break
     return x
 
-def up_syntax(program_labels,trace_list,exist_list):
+def up_syntax(tc):
     def x():
         for i in range(20):
-            if (program_labels[i]["bg"] == "#ffff6d") & (i != 0):
-                program_labels[i]["bg"] = "#ffffff"
-                program_labels[i-1]["bg"] = "#ffff6d"
-                if i < len(program_codelist):
-                    if program_codelist[i-1][1] != " ":
-                        label_cng(trace_list,i-1,0)
+            if (tc.labels[i]["bg"] == "#ffff6d") & (i != 0):
+                tc.labels[i]["bg"] = "#ffffff"
+                tc.labels[i-1]["bg"] = "#ffff6d"
+                if i < len(tc.token):
+                    if tc.token[i-1][1] != " ":
+                        label_cng(tc,i-1,0)
                     else:
-                        label_cng(trace_list,i-1,1)
-                    if program_codelist[i][1] != " ":
-                        exist_cng(exist_list,i,1)
+                        label_cng(tc,i-1,1)
+                    if tc.token[i][1] != " ":
+                        exist_cng(tc,i,1)
                 break
     return x
 
 
-def open_file(program_labels,trace_list):
+def open_file(tc):
     """
     ファイルを読み取り，
     program_labelのテキストの設定とコードの簡易な解析を行います(テスト用)．
     """
-    code = []
     def x():
         """Open a file for editing."""
         filepath = askopenfilename(
@@ -247,19 +271,21 @@ def open_file(program_labels,trace_list):
         with open(filepath, "r") as input_file:
             text = input_file.readlines()
             for i in range(len(text)):
-                program_labels[i]["text"] = text[i]
-                code.append(text[i])
+                tc.code.append(text[i])
+                if i < 20:
+                    tc.labels[i]["text"] = text[i]
+                
         
-        for i in range(len(code)):
-            idx = code[i].find('=')
+        for i in range(len(tc.code)):
+            idx = tc.code[i].find('=')
             a = []
             if(idx != -1):
-                type_andName = ''.join(list(code[i])[:idx])
+                type_andName = ''.join(list(tc.code[i])[:idx])
                 space_split = type_andName.strip(' ').replace(';','')
                 space_split = space_split.split(' ')
                 hensu_name = space_split[len(space_split)-1]
                 type_name = ''.join(space_split[0:len(space_split)-1])
-                value = ''.join(list(code[i])[idx+1:]).strip(' ').replace(';','')
+                value = ''.join(list(tc.code[i])[idx+1:]).strip(' ').replace(';','')
                 a.append(type_name)
                 a.append(hensu_name)
                 a.append(value)
@@ -267,8 +293,9 @@ def open_file(program_labels,trace_list):
                 a.append(" ")
                 a.append(" ")
                 a.append(" ")
-            program_codelist.append(a)     
+            tc.token.append(a)
     return x
+
 
 
 if __name__ == "__main__":
