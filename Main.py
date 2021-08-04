@@ -14,6 +14,8 @@ class Trace:
     token: list = field(default_factory=list)
     highest_view: int = 0
     lowest_view: int = 19
+    syntax_position:int = 0
+    token_position:int = highest_view+syntax_position
     """
     trace_list has 5 values.
     0:type
@@ -31,13 +33,24 @@ class Trace:
     """
     exist_list: list = field(default_factory=list)
 
-#### rootフレームの設定
-root = frk.FormK(24,20,0)
-root.title("C-Learning")
-root.geometry("1000x600")
-root.result = tk.StringVar()
+    def view_move(self,move):
+        self.highest_view += move
+        self.lowest_view += move
+        self.token_position = self.highest_view+self.syntax_position
+
+    def syntax_move(self,move):
+        self.syntax_position += move
+        self.token_position = self.highest_view+self.syntax_position
+
+
+
 
 def main():
+    #### rootフレームの設定
+    root = frk.FormK(24,20,0)
+    root.title("C-Learning")
+    root.geometry("1000x600")
+    root.result = tk.StringVar()
     ### スタイル設定 ###
     style = ttk.Style() 
     style.configure('TButton', font = 
@@ -139,47 +152,16 @@ def main():
     root.mainloop()
 
 #### 関数セット
-def up_code(tc):
-    """
-    表示範囲を超える行数のプログラムの行を管理します．(未実装)
-    """
-    def x():
-        #tc.labelsの最上部がプログラムの1行目でないか．
-        if tc.highest_view != 0:
-            if len(tc.code)!=0:
-                tc.highest_view -= 1
-                tc.lowest_view -= 1
-                for i in range(20):
-                    tc.labels[i]["text"] = tc.code[tc.highest_view+i]
-    return x
 
-def down_code(tc):
-    """
-    表示範囲を超える行数のプログラムの行を管理します．(未実装)
-    """
-    def x():
-        #tc.labelsの最下部がプログラムの終行でないか．
-        if tc.lowest_view != len(tc.code)-1 and len(tc.code)!=0:
-            tc.highest_view += 1
-            tc.lowest_view += 1
-            for i in range(20):
-                tc.labels[i]["text"] = tc.code[tc.highest_view+i]
-    return x
 
-def label_cng(tc,index,clear_flag):
+def label_change(tc,index,clear_flag):
     """
     trace_listのテキストを変更します．
     index: プログラムの行に対応したindex
     clear_flag: 1の場合非表示(何も表示しない状態)にします．(空行などで使用)
-
-    !!! !!!
-    trace_list has 4 values.
-    0:type_label
-    1:name_label
-    2:input_value_label
-    3:initial_value_label
-    !!! !!!
     """
+
+    
     if clear_flag == 0:
         tc.trace_list[2]["relief"] = "groove"
         tc.trace_list[3]["relief"] = "groove"
@@ -195,10 +177,12 @@ def label_cng(tc,index,clear_flag):
         tc.trace_list[1]["text"] = tc.token[index][1]
         tc.trace_list[2]["text"] = tc.token[index][2]
 
-def exist_cng(tc,index,clear_flag):
+
+
+def exist_change(tc,index,clear_flag):
     """
     定義済みの変数の管理を行います．
-    label_cngと同じ要領．
+    label_changeと同じ要領．
     """
     if clear_flag == 0:
         for i in range(len(tc.exist_list)):
@@ -224,45 +208,117 @@ def exist_cng(tc,index,clear_flag):
 ### syntaxの遷移を行います． ###
 ### down_syntax:program_labelのhighlightを1つ下へ変更します． ###
 ### up_syntax:program_labelのhighlightを1つ上へ変更します． ###
+def down_trace_change(tc):
+    if tc.token[tc.token_position][1] != " ": #highlightされた部分が代入文ならば...
+        tc.trace_list[2]["relief"] = "groove"
+        tc.trace_list[3]["relief"] = "groove"
+        tc.trace_list[4]["text"] = "⇦"
+        tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
+        tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
+        tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
+
+        for i in range(len(tc.exist_list)):
+            if tc.exist_list[i][2] == 0:
+                tc.exist_list[i][0]["text"] = tc.token[tc.token_position][1]
+                tc.exist_list[i][1]["text"] = tc.token[tc.token_position][2]
+                tc.exist_list[i][2] = 1
+                return
+        for i in range(len(tc.exist_list)):
+            tc.exist_list[i][2] = 0
+        tc.exist_list[0][2] = 1
+        tc.exist_list[0][0]["text"] = tc.token[tc.token_position][1]
+        tc.exist_list[0][1]["text"] = tc.token[tc.token_position][2]
+    else:
+        tc.trace_list[2]["relief"] = "flat"
+        tc.trace_list[3]["relief"] = "flat"
+        tc.trace_list[4]["text"] = " "
+        tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
+        tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
+        tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
+
 def down_syntax(tc):
     def x():
-        for i in range(20):
-            if (tc.labels[i]["bg"] == "#ffff6d") & (i != 19):
-                tc.labels[i]["bg"] = "#ffffff"
-                tc.labels[i+1]["bg"] = "#ffff6d"
-                if i+1 < len(tc.token):
-                    if tc.token[i+1][1] != " ":
-                        label_cng(tc,i+1,0)
-                        exist_cng(tc,i+1,0)
-                    else:
-                        label_cng(tc,i+1,1)
-                break
+        if tc.syntax_position != 19:
+            tc.labels[tc.syntax_position]["bg"] = "#ffffff"
+            tc.syntax_move(1)
+            tc.labels[tc.syntax_position]["bg"] = "#ffff6d"
+            if tc.token_position < len(tc.code):
+                down_trace_change(tc)
     return x
+
+def down_code(tc):
+    """
+    表示範囲を超える行数のプログラムの行を管理します．(未実装)
+    """
+    def x():
+        #tc.labelsの最下部がプログラムの終行でないか．
+        if tc.lowest_view != len(tc.code)-1:
+            tc.view_move(1)
+            for i in range(20):
+                tc.labels[i]["text"] = tc.code[tc.highest_view+i]
+            if tc.token_position < len(tc.code):
+                down_trace_change(tc)
+            
+    return x
+
+def up_trace_change(tc):
+    if tc.token[tc.token_position][1] != " ": #highlightされた部分が代入文ならば...
+        tc.trace_list[2]["relief"] = "groove"
+        tc.trace_list[3]["relief"] = "groove"
+        tc.trace_list[4]["text"] = "⇦"
+        tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
+        tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
+        tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
+    else:
+        tc.trace_list[2]["relief"] = "flat"
+        tc.trace_list[3]["relief"] = "flat"
+        tc.trace_list[4]["text"] = " "
+        tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
+        tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
+        tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
+    
+    if tc.token[tc.token_position+1][1] != " ": #現在の行より下にexist_valueが含まれるなら，対象となるexist_valueを消去する．
+        for i in range(len(tc.exist_list)):
+            if tc.exist_list[i][0]["text"] == tc.token[tc.token_position+1][1]:
+                tc.exist_list[i][2] = 0
+                tc.exist_list[i][0]["text"] = " "
+                tc.exist_list[i][1]["text"] = " "
 
 def up_syntax(tc):
     def x():
-        for i in range(20):
-            if (tc.labels[i]["bg"] == "#ffff6d") & (i != 0):
-                tc.labels[i]["bg"] = "#ffffff"
-                tc.labels[i-1]["bg"] = "#ffff6d"
-                if i < len(tc.token):
-                    if tc.token[i-1][1] != " ":
-                        label_cng(tc,i-1,0)
-                    else:
-                        label_cng(tc,i-1,1)
-                    if tc.token[i][1] != " ":
-                        exist_cng(tc,i,1)
-                break
+        if tc.syntax_position != 0:
+            tc.labels[tc.syntax_position]["bg"] = "#ffffff"
+            tc.syntax_move(-1)
+            tc.labels[tc.syntax_position]["bg"] = "#ffff6d"
+            if tc.token_position+1 < len(tc.code):
+                up_trace_change(tc)          
+    return x
+
+def up_code(tc):
+    """
+    表示範囲を超える行数のプログラムの行を管理します．(未実装)
+    """
+    def x():
+        #tc.labelsの最上部がプログラムの1行目でないか．
+        if tc.highest_view != 0:
+            tc.view_move(-1)
+            for i in range(20):
+                tc.labels[i]["text"] = tc.code[tc.highest_view+i]
+            if tc.token_position+1 < len(tc.code):
+                up_trace_change(tc)
+
     return x
 
 
 def open_file(tc):
     """
-    ファイルを読み取り，
-    program_labelのテキストの設定とコードの簡易な解析を行います(テスト用)．
+    ファイルの読み取りと，いくつかのデータの取得．
+    tc.code：listの1要素を1行としてソースコードを取得．
+    tc.labels：codeに格納された情報を基にGUI表示する部分を設定．
+    tc.token：ソースコード1行ごとに定めた形式で必要なトークンを取り出し．
+            　1行めのトークン：token[0]=[変数の型,変数名,代入する値] //空行や代入処理を行わない行では[ , , ]とする
     """
     def x():
-        """Open a file for editing."""
         filepath = askopenfilename(
             filetypes=[("C Files", "*.c"), ("All Files", "*.*")]
         )
