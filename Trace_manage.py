@@ -110,7 +110,7 @@ class Trace:
         """
         { 変数の型，変数の名前，変数のvalue }の塊をプログラムの行の数だけ生成
         """
-        self.type_color = {'int':'#008000','float':'#1e90ff','double':'0000cd','char':'#ffa500'}
+        self.type_color = {'int':'#008000','float':'#1e90ff','double':'#0000cd','char':'#ffa500','unsignedchar':'#ffa500'}
         main_flag = 0
         sourcedata_index = 1
         dict_name2type = {}
@@ -178,6 +178,7 @@ class Trace:
                 for i in range(len(self.exist_object)): # exist_objectの空きを検索し，空きがあれば入れる
                     if self.exist_object[i][2] == 0:
                         self.exist_object[i][0]["text"] = self.token[now_pos][1]
+                        self.exist_object[i][0]["fg"] = self.type_color[self.token[now_pos][0]]
                         self.exist_object[i][1]["text"] = self.token[now_pos][2]
                         self.exist_object[i][2] = 1
                         return
@@ -215,7 +216,7 @@ class Trace:
                     else:
                         self.labels[i]["text"] = self.code[self.highest_view+i]
                 if self.token_position < len(self.code):
-                    self.down_trace_change()                
+                    self.down_trace_change()
         return x
 
 

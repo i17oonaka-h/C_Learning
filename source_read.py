@@ -76,7 +76,7 @@ def get_token(filepath):
             output_file.write(contents)
         if contents=='':
             break
-        result = re.findall(pattern, contents)
+        result = re.findall(pattern.replace(' ',''), contents)
         if len(result)!=0:
             local_list.append(result)
         result = re.findall(pattern1, contents)
