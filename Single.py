@@ -91,19 +91,23 @@ class Trace:
 
     def token_set(self,sourcedata):
         main_flag = 0
-        sourcedata_index = 0
+        sourcedata_index = 1
         dict_exist = {}
         for i in range(len(self.code)):
             if main_flag == 0:
                 self.token_append('','','')
-                if 'main()' in self.code[i]:
-                    main_flag == 1
+                if 'int main()' in self.code[i]:
+                    main_flag = 1
             else: # main_flag == 1
+                """
+                 source:[[], [('age ', "25 '\\031'")], [('height ', '166.69999999999999')], [('weight ', '58.5')], [], [], [], [], [], []]
+                """
+                print('code:{} \ source:{}'.format(self.code[i],sourcedata[sourcedata_index]))
                 if len(sourcedata[sourcedata_index]) == 0:
                     self.token_append('','','')
                 else:
-                    name_ = sourcedata[sourcedata_index][0]
-                    value_ = sourcedata[sourcedata_index][1]
+                    name_ = sourcedata[sourcedata_index][0][0]
+                    value_ = sourcedata[sourcedata_index][0][1]
 
                     equal_idx = self.code[i].find('=')
                     if equal_idx != -1: # イコールを含むなら...
@@ -112,6 +116,10 @@ class Trace:
                         space_split = space_split.split(' ')
                         if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，初期化処理
                             type_ = ''.join(space_split[0:len(space_split)-1])
+                            print("type={},name={},value={}".format(type_,name_,value_))
+                            if type_ == 'float' or type_ == 'double':
+                                value_ = float(value_)
+                                value_ = str(value_ )
                             self.token_append(type_, name_, value_)
                             dict_exist[name_] = type_
 
@@ -125,6 +133,8 @@ class Trace:
                         type_ = ''.join(space_split[0:len(space_split)-1])
                         self.token_append(type_, name_, '')
                 sourcedata_index += 1
+        
+        print('finaltoken:{}'.format(self.token))
 
 
 
@@ -294,7 +304,6 @@ def open_file(tc):
         if not filepath:
             return
         sourcedata = get_token(filepath)
-        print('source:{}'.format(sourcedata))
         with open(filepath, "r") as input_f:
             text = input_f.readlines()
             for i in range(len(text)):

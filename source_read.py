@@ -14,6 +14,7 @@ def create_token(local_list):
             set_in = set_ - set_prior
             ret_list.append(list(set_in))
             set_prior = set_
+    ret_list.append([])
     return ret_list
 
 
