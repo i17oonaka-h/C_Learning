@@ -1,5 +1,5 @@
 set logging file output.txt
-b 13
+b 24
 run
 set logging on
 info locals

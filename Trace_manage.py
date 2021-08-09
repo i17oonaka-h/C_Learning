@@ -14,7 +14,7 @@ class Trace:
     labels: list = field(default_factory=list) # program labels( len(labels) == 20 )
     code: list = field(default_factory=list) # code information
     token: list = field(default_factory=list) # token information(len(code) == len(token))
-    exist_timing: dict = field(default_factory=dict) # 変数が定義されるタイミング( 変数名:定義された行 )
+    change_timing: dict = field(default_factory=dict) # 変数が変更(定義)されるタイミング( 行数：変更あり(変数名)/変更なし('') )
     highest_view: int = 0 # program labelsの最も上の表示位置
     lowest_view: int = 19 # program labelsの最も下の表示位置
     highlight_position:int = 0 # ハイライトの位置
@@ -88,12 +88,23 @@ class Trace:
                 c.append(used_flag)
                 self.exist_object.append(c)
     
-    def token_append(self,type_,name_,value_): # token_setで使用
+    def token_timing_append(self, type_, name_, value_, code_num, declare_flag = 0, prior_value = ''): # token_setで使用
+        """
+        self.tokenは4つの要素をプログラムの行の数だけ持ちます．
+        0:変数の型
+        1:変数の名前
+        2:変数のvalue
+        3:フラグ / 変数の宣言を行う行なら1，それ以外0(down_trace_change用)
+        4:以前，保持していた値を保持する(up_trace_change用)
+        """
         temporal = []
         temporal.append(type_)
         temporal.append(name_)
         temporal.append(value_)
+        temporal.append(declare_flag)
+        temporal.append(prior_value)
         self.token.append(temporal)
+        self.change_timing[code_num] = name_
 
     def token_set(self,sourcedata):
         """
@@ -103,14 +114,15 @@ class Trace:
         main_flag = 0
         sourcedata_index = 1
         dict_name2type = {}
+        dict_name2prior_value = {}
         for i in range(len(self.code)):
             if main_flag == 0:
-                self.token_append('','','')
+                self.token_timing_append('','','',i)
                 if 'int main()' in self.code[i]:
                     main_flag = 1
             else: # main_flag == 1
                 if len(sourcedata[sourcedata_index]) == 0:
-                    self.token_append('','','')
+                    self.token_timing_append('','','',i)
                 else:
                     name_ = sourcedata[sourcedata_index][0][0]
                     value_ = sourcedata[sourcedata_index][0][1]
@@ -120,40 +132,49 @@ class Trace:
                         type_andName = ''.join(list(self.code[i])[:equal_idx])
                         space_split = type_andName.strip(' ').replace(';','')
                         space_split = space_split.split(' ')
-                        if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，初期化処理
-                            
+                        if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                           
                             type_ = ''.join(space_split[0:len(space_split)-1])
                             if type_ == 'float' or type_ == 'double':
                                 value_ = float(value_)
                                 value_ = str(value_ )
-                            self.token_append(type_, name_, value_)
-                            self.exist_timing[name_] = i
+                            self.token_timing_append(type_, name_, value_,i,declare_flag=1)
                             dict_name2type[name_] = type_
+                            dict_name2prior_value[name_] = value_
 
                         else: # イコールの左に1つだけトークンがある時，計算処理
                             type_ = dict_name2type[name_]
-                            self.token_append(type_, name_, value_)
-                    else: # イコールを含まない初期化処理
+                            prior_value = dict_name2prior_value[name_]
+                            self.token_timing_append(type_, name_, value_,i,prior_value=prior_value)
+                            dict_name2prior_value[name_] = value_
+                    else: # イコールを含まない宣言のみの処理
                         type_andName = ''.join(list(self.code[i])[:equal_idx])
                         space_split = type_andName.strip(' ').replace(';','')
                         space_split = space_split.split(' ')
                         type_ = ''.join(space_split[0:len(space_split)-1])
-                        self.token_append(type_, name_, '')
-                        self.exist_timing[name_] = i
+                        dict_name2type[name_] = type_
+                        dict_name2prior_value[name_] = value_
+                        self.token_timing_append(type_, name_, '',i,declare_flag=1)
                 sourcedata_index += 1
 
     
 
     def down_trace_change(self):
         now_pos = self.token_position
-        now_name = self.token[now_pos][1]
-        if now_name != '': #highlightされた部分が宣言文・代入文ならば...
-            self.trace_object[2]["relief"] = "groove"
-            self.trace_object[0]["text"] = self.token[now_pos][0]
-            self.trace_object[1]["text"] = self.token[now_pos][1]
-            self.trace_object[2]["text"] = self.token[now_pos][2]
+        now_token = self.token[now_pos]
+        self.trace_object[0]["text"] = now_token[0]
+        self.trace_object[1]["text"] = now_token[1]
+        self.trace_object[2]["text"] = now_token[2]
 
-            if self.exist_timing[now_name] == now_pos: # 宣言文ならば...
+        if now_token[1] != '': #highlightされた部分が宣言文・代入文ならば...
+            self.trace_object[2]["relief"] = "groove"
+
+            if now_token[3] == 0: # 代入処理
+                for i in range(len(self.exist_object)):
+                    if now_token[1] == self.exist_object[i][0]["text"]: # 今の行の変数と一致する定義済み変数がある時，valueのみ変更する
+                        self.exist_object[i][1]["text"] = now_token[2]
+                        return # 関数の終了
+            else: # 変数の宣言    
+                # 以下はまだexist_objectに変数がない == 未定義の時の処理
                 for i in range(len(self.exist_object)): # exist_objectの空きを検索し，空きがあれば入れる
                     if self.exist_object[i][2] == 0:
                         self.exist_object[i][0]["text"] = self.token[now_pos][1]
@@ -165,11 +186,9 @@ class Trace:
                 self.exist_object[0][2] = 1
                 self.exist_object[0][0]["text"] = self.token[self.token_position][1]
                 self.exist_object[0][1]["text"] = self.token[self.token_position][2]
-        else: # 代入文でない...
+
+        else: # 宣言・代入文でない...
             self.trace_object[2]["relief"] = "flat"
-            self.trace_object[0]["text"] = self.token[self.token_position][0]
-            self.trace_object[1]["text"] = self.token[self.token_position][1]
-            self.trace_object[2]["text"] = self.token[self.token_position][2]
 
     def down_highlight(self):
         def x():
@@ -209,26 +228,29 @@ class Trace:
         1:変数の名前の表示
         2:変数のvalueの表示
         """
+        self.trace_object[0]["text"] = self.token[self.token_position][0]
+        self.trace_object[1]["text"] = self.token[self.token_position][1]
+        self.trace_object[2]["text"] = self.token[self.token_position][2]
         if self.token[self.token_position][1] != '': #highlightされた部分が代入文ならば...
             self.trace_object[2]["relief"] = "groove" # value表示に枠線を追加
-            self.trace_object[0]["text"] = self.token[self.token_position][0]
-            self.trace_object[1]["text"] = self.token[self.token_position][1]
-            self.trace_object[2]["text"] = self.token[self.token_position][2]
         else:
             self.trace_object[2]["relief"] = "flat"
-            self.trace_object[0]["text"] = self.token[self.token_position][0]
-            self.trace_object[1]["text"] = self.token[self.token_position][1]
-            self.trace_object[2]["text"] = self.token[self.token_position][2]
         
         prior_pos = self.token_position+1
-        prior_name = self.token[prior_pos][1]
-        if prior_name != '' and self.exist_timing[prior_name] == prior_pos: #現在の行より下にexist_valueが含まれるなら，対象となるexist_valueを消去する．
-            for i in range(len(self.exist_object)): #exist_objectを探索
-                if self.exist_object[i][0]["text"] == prior_name: # 名前が一致した部分を消去
-                    self.exist_object[i][2] = 0
-                    self.exist_object[i][0]["text"] = " "
-                    self.exist_object[i][1]["text"] = " "
-                    break
+        prior_token = self.token[prior_pos]
+        if prior_token[1] != '': #prior_tokenが宣言or代入
+            if prior_token[3] == 1: #現在の行の一つ下が変数の宣言の時，exist_objectからその変数をexist_objectから消去する．
+                for i in range(len(self.exist_object)): #exist_objectを探索
+                    if self.exist_object[i][0]["text"] == prior_token[1]: # 名前が一致した部分を消去
+                        self.exist_object[i][2] = 0
+                        self.exist_object[i][0]["text"] = ""
+                        self.exist_object[i][1]["text"] = ""
+                        return
+            else: # 代入処理の時prior_valueを参照し，exist_objectの値を変更
+                for i in range(len(self.exist_object)): #exist_objectを探索
+                    if self.exist_object[i][0]["text"] == prior_token[1]: # 名前が一致した部分のvalueを変更
+                        self.exist_object[i][1]["text"] = prior_token[4]
+                        return
 
     def up_highlight(self):
         def x():
