@@ -1,0 +1,8 @@
+set logging file output.txt
+b 3
+run
+set logging on
+info locals
+set logging off
+continue
+quit

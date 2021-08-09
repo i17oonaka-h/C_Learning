@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
+from os import name
 import tkinter as tk
 import tkinter.ttk as ttk
 from typing import Text
 import Framework as frk
 from tkinter import ttk
 from dataclasses import dataclass, field
+from source_read import get_token
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
 @dataclass
@@ -16,22 +18,9 @@ class Trace:
     lowest_view: int = 19
     highlight_position:int = 0
     token_position:int = highest_view+highlight_position
-    """
-    trace_list has 5 values.
-    0:type
-    1:name
-    2:input_value
-    3:initial_value
-    4:arrow
-    """
     trace_list: list = field(default_factory=list)
-    """
-    exist_list has 3 values.
-    0:name_label
-    1:initial_value_label
-    2:used_flag(occupied is 1. empty is 0.)
-    """
     exist_list: list = field(default_factory=list)
+    type_color: dict = field(default_factory=dict)
 
     def view_move(self,move):
         self.highest_view += move
@@ -42,52 +31,109 @@ class Trace:
         self.highlight_position += move
         self.token_position = self.highest_view+self.highlight_position
     
-    def trace_list_set(self,row,col):
+    def labels_set(self):
+        for i in range(20):
+            self.labels.append(frk.LabelK())
+            self.labels[i]["font"] = ("Arial", 16)
+            self.labels[i]["text"] = "\n"
+            if i == 0:
+                self.labels[i]["bg"] = "#ffff6d"
+            else:
+                self.labels[i]["bg"] = "#ffffff"
+            self.labels[i]["anchor"] = "nw"
+            self.labels[i].layout = "1,{},10,1".format(i+1)
+
+    def trace_list_set(self,row=12,col=3):
+        """
+        trace_list has 3 values.
+        0:type
+        1:name
+        2:initial_value
+        """
         type_label = frk.LabelK()
         name_label = frk.LabelK()
         initial_value_label = frk.LabelK()
-        input_value_label = frk.LabelK()
-        arrowConst = frk.LabelK()
-        type_label.layout = "{},{},{},{}".format(row,col+2,3,1)
-        name_label.layout = "{},{},{},{}".format(row+3,col,1,1)
-        initial_value_label.layout = "{},{},{},{}".format(row+3,col+1,1,2)
-        input_value_label.layout = "{},{},{},{}".format(row+5,col+1,1,2)
-        arrowConst.layout = "{},{},{},{}".format(row+4,col+2,1,1)
+        type_label.layout = "{},{},{},{}".format(row,col+2,4,1)
+        name_label.layout = "{},{},{},{}".format(row+4,col,2,1)
+        initial_value_label.layout = "{},{},{},{}".format(row+4,col+1,2,2)
         initial_value_label["relief"] = 'flat'
-        input_value_label["relief"] = 'flat'
         type_label["anchor"] = "se"
-        arrowConst["text"] = " "
         self.trace_list.append(type_label) #0
         self.trace_list.append(name_label) #1
-        self.trace_list.append(input_value_label) #2
-        self.trace_list.append(initial_value_label) #3
-        self.trace_list.append(arrowConst) #4
+        self.trace_list.append(initial_value_label) #2
     
-    def exist_list_set(self,row,col):
-        for i in range(1):
-            for j in range(4):
+    def exist_list_set(self,row=12,col=10):
+        """
+        exist_list has 3 values.
+        0:name_label
+        1:initial_value_label
+        2:used_flag(occupied is 1. empty is 0.)
+        """
+        for y in range(3):
+            for x in range(4):
                 a = frk.LabelK()
-                a.layout = "{},10,1,1".format(12+2*j)
+                a.layout = "{},{},1,1".format(row+2*x,col+4*y)
                 b = frk.LabelK()
-                b.layout = "{},11,1,2".format(12+2*j)
+                b.layout = "{},{},1,2".format(row+2*x,col+1+4*y)
                 used_flag = 0
                 c = []
                 c.append(a)
                 c.append(b)
                 c.append(used_flag)
                 self.exist_list.append(c)
-        
+    
+    def token_append(self,type_,name_,value_):
+        temporal = []
+        temporal.append(type_)
+        temporal.append(name_)
+        temporal.append(value_)
+        self.token.append(temporal)
+
+    def token_set(self,sourcedata):
+        main_flag = 0
+        sourcedata_index = 0
+        dict_exist = {}
+        for i in range(len(self.code)):
+            if main_flag == 0:
+                self.token_append('','','')
+                if 'main()' in self.code[i]:
+                    main_flag == 1
+            else: # main_flag == 1
+                if len(sourcedata[sourcedata_index]) == 0:
+                    self.token_append('','','')
+                else:
+                    name_ = sourcedata[sourcedata_index][0]
+                    value_ = sourcedata[sourcedata_index][1]
+
+                    equal_idx = self.code[i].find('=')
+                    if equal_idx != -1: # イコールを含むなら...
+                        type_andName = ''.join(list(self.code[i])[:equal_idx])
+                        space_split = type_andName.strip(' ').replace(';','')
+                        space_split = space_split.split(' ')
+                        if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，初期化処理
+                            type_ = ''.join(space_split[0:len(space_split)-1])
+                            self.token_append(type_, name_, value_)
+                            dict_exist[name_] = type_
+
+                        else: # イコールの左に1つだけトークンがある時，計算処理
+                            type_ = dict_exist[name_]
+                            self.token_append(type_, name_, value_)
+                    else: # イコールを含まない初期化処理
+                        type_andName = ''.join(list(self.code[i])[:equal_idx])
+                        space_split = type_andName.strip(' ').replace(';','')
+                        space_split = space_split.split(' ')
+                        type_ = ''.join(space_split[0:len(space_split)-1])
+                        self.token_append(type_, name_, '')
+                sourcedata_index += 1
 
 
 
 
 def main():
-    #### rootフレームの設定
     root = frk.FormK(24,20,0)
     root.title("C-Learning")
     root.geometry("1000x600")
     root.result = tk.StringVar()
-    ### スタイル設定 ###
     style = ttk.Style() 
     style.configure('TButton', font = 
                ('calibri', 20, 'bold'),
@@ -96,23 +142,11 @@ def main():
          , foreground = [('active', '!disabled', 'green')]
          , background = [('active', 'black')]
          ) 
-    ### プログラム表示部分の生成 ###
+
     tc = Trace()
-    for i in range(20):
-        tc.labels.append(frk.LabelK())
-        tc.labels[i]["font"] = ("Arial", 16)
-        tc.labels[i]["text"] = "\n"
-        if i == 0:
-            tc.labels[i]["bg"] = "#ffff6d"
-        else:
-            tc.labels[i]["bg"] = "#ffffff"
-        tc.labels[i]["anchor"] = "nw"
-        tc.labels[i].layout = "1,{},10,1".format(i+1)
-    ### トレース図の生成(program progress) ###
-    tc.trace_list_set(row=12,col=5)
+    tc.labels_set()
+    tc.trace_list_set(row=12,col=3)
     tc.exist_list_set(row=12,col=10)
-    
-    
     
     ### 不変なオブジェクトの設定 ###
     # 再生ボタンの設定
@@ -162,8 +196,6 @@ def main():
 def down_trace_change(tc):
     if tc.token[tc.token_position][1] != " ": #highlightされた部分が代入文ならば...
         tc.trace_list[2]["relief"] = "groove"
-        tc.trace_list[3]["relief"] = "groove"
-        tc.trace_list[4]["text"] = "⇦"
         tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
         tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
         tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
@@ -181,8 +213,6 @@ def down_trace_change(tc):
         tc.exist_list[0][1]["text"] = tc.token[tc.token_position][2]
     else:
         tc.trace_list[2]["relief"] = "flat"
-        tc.trace_list[3]["relief"] = "flat"
-        tc.trace_list[4]["text"] = " "
         tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
         tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
         tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
@@ -215,15 +245,11 @@ def down_code(tc):
 def up_trace_change(tc):
     if tc.token[tc.token_position][1] != " ": #highlightされた部分が代入文ならば...
         tc.trace_list[2]["relief"] = "groove"
-        tc.trace_list[3]["relief"] = "groove"
-        tc.trace_list[4]["text"] = "⇦"
         tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
         tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
         tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
     else:
         tc.trace_list[2]["relief"] = "flat"
-        tc.trace_list[3]["relief"] = "flat"
-        tc.trace_list[4]["text"] = " "
         tc.trace_list[0]["text"] = tc.token[tc.token_position][0]
         tc.trace_list[1]["text"] = tc.token[tc.token_position][1]
         tc.trace_list[2]["text"] = tc.token[tc.token_position][2]
@@ -260,71 +286,24 @@ def up_code(tc):
 
     return x
 
-"""
-def token_check(tc,program):
-    equal_idx = program.find('=')
-    if(equal_idx != -1): # 「=」を含む文章である時
-        input_value = program[equal_idx+1:].replace(' ','').replace(';','')
-
-        left_equal = program[:equal_idx].strip()
-        left_equals = left_equal.split()
-        if len(left_equals) > 1: # 変数の宣言
-            hensu_name = left_equals[-1]
-            type_name = ''.join(left_equals[0:len(left_equals)-1])
-        else: # 代入処理
-            test(x)# ここから
-"""
-
-        
-
-
-
-
-
 def open_file(tc):
-    """
-    ファイルの読み取りと，いくつかのデータの取得．
-    tc.code：listの1要素を1行としてソースコードを取得．
-    tc.labels：codeに格納された情報を基にGUI表示する部分を設定．
-    tc.token：ソースコード1行ごとに定めた形式で必要なトークンを取り出し．
-            　1行めのトークン：token[0]=[変数の型,変数名,代入する値] //空行や代入処理を行わない行では[ , , ]とする
-    """
     def x():
         filepath = askopenfilename(
             filetypes=[("C Files", "*.c"), ("All Files", "*.*")]
         )
         if not filepath:
             return
-        with open(filepath, "r") as input_file:
-            text = input_file.readlines()
+        sourcedata = get_token(filepath)
+        print('source:{}'.format(sourcedata))
+        with open(filepath, "r") as input_f:
+            text = input_f.readlines()
             for i in range(len(text)):
                 tc.code.append(text[i])
                 if i < 20:
                     tc.labels[i]["text"] = text[i]
-                
         
-        for i in range(len(tc.code)):
-            #token_check(tc,program)
-            idx = tc.code[i].find('=')
-            a = []
-            if(idx != -1):
-                type_andName = ''.join(list(tc.code[i])[:idx])
-                space_split = type_andName.strip(' ').replace(';','')
-                space_split = space_split.split(' ')
-                hensu_name = space_split[len(space_split)-1]
-                type_name = ''.join(space_split[0:len(space_split)-1])
-                value = ''.join(list(tc.code[i])[idx+1:]).strip(' ').replace(';','')
-                a.append(type_name)
-                a.append(hensu_name)
-                a.append(value)
-            else:
-                a.append(" ")
-                a.append(" ")
-                a.append(" ")
-            tc.token.append(a)
+        tc.token_set(sourcedata)
     return x
-
-
 
 if __name__ == "__main__":
     main()
