@@ -3,6 +3,7 @@ from subprocess import PIPE
 import re 
 import os
 import glob
+import numpy as np
 
 def create_token(local_list):
     ret_list = []
@@ -16,6 +17,20 @@ def create_token(local_list):
             set_prior = set_
     ret_list.append([])
     return ret_list
+
+def create_arraytoken(array_list):
+    new_arraylist = []
+    for array_token in array_list:
+        value = array_token[0][1]
+        value = value.strip().split(',')
+        num_list = [array_token[0][0]]
+        new_tuple = tuple(num_list+value)
+        input_token = [new_tuple]
+        new_arraylist.append(input_token)
+    ret_list = create_token(new_arraylist)
+    return ret_list
+
+        
 
 
 def get_token(filepath):
@@ -84,4 +99,6 @@ def get_token(filepath):
             array_list.append(result)
         
     ret_list = create_token(local_list)
+    array_list = create_arraytoken(array_list)
+    ret_list = list(np.array(ret_list) + np.array(array_list))
     return ret_list

@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-// 20行以上のプログラムを上手く管理できるかテスト．
+// 代入文とかのテスト
 
 int main(){
     unsigned char age = 25;

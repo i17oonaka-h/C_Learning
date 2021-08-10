@@ -1,5 +1,6 @@
 from os import name
 import tkinter as tk
+import math
 import tkinter.ttk as ttk
 from typing import Text
 import Framework as frk
@@ -58,14 +59,23 @@ class Trace:
         type_label = frk.LabelK()
         name_label = frk.LabelK()
         initial_value_label = frk.LabelK()
+        array_value1_label = frk.LabelK()
+        array_value2_label = frk.LabelK()
         type_label.layout = "{},{},{},{}".format(row,col+2,4,1)
-        name_label.layout = "{},{},{},{}".format(row+4,col,2,1)
-        initial_value_label.layout = "{},{},{},{}".format(row+4,col+1,2,2)
+        name_label.layout = "{},{},{},{}".format(row+4,col,1,1)
+        initial_value_label.layout = "{},{},{},{}".format(row+4,col+1,1,2)
+        array_value1_label.layout = "{},{},{},{}".format(row+5,col+1,1,2)
+        array_value2_label.layout = "{},{},{},{}".format(row+6,col+1,1,2)
         initial_value_label["relief"] = 'flat'
+        array_value1_label["relief"] = 'flat'
+        array_value2_label["relief"] = 'flat'
         type_label["anchor"] = "se"
         self.trace_object.append(type_label) #0
         self.trace_object.append(name_label) #1
         self.trace_object.append(initial_value_label) #2
+        self.trace_object.append(array_value1_label) #3
+        self.trace_object.append(array_value2_label) #4
+        
     
     def exist_object_set(self,row=12,col=10):
         """
@@ -88,22 +98,26 @@ class Trace:
                 c.append(used_flag)
                 self.exist_object.append(c)
     
-    def token_timing_append(self, type_, name_, value_, code_num, declare_flag = 0, prior_value = ''): # token_setで使用
+    def token_timing_append(self, type_, name_, value_, code_num, array_center = '', array_last = '', declare_flag = 0, prior_value = ''): # token_setで使用
         """
         self.tokenは4つの要素をプログラムの行の数だけ持ちます．
         0:変数の型
         1:変数の名前
-        2:変数のvalue
-        3:フラグ / 変数の宣言を行う行なら1，それ以外0(down_trace_change用)
-        4:以前，保持していた値を保持する(up_trace_change用)
+        2:変数のvalue (配列の時は hairetu[0]の値)
+        3: 配列の時「...」，それ以外なら「 」
+        4:配列の時，hairetu[-1]の値
+        5(-2):フラグ / 変数の宣言を行う行なら1，それ以外0(down_trace_change用)
+        6(-1):以前，保持していた値を保持する(up_trace_change用)
         """
         temporal = []
-        temporal.append(type_)
-        temporal.append(name_)
-        temporal.append(value_)
-        temporal.append(declare_flag)
-        temporal.append(prior_value)
-        self.token.append(temporal)
+        temporal.append(type_) #0
+        temporal.append(name_) #1
+        temporal.append(value_) #2
+        temporal.append(array_center) #3
+        temporal.append(array_last) #4
+        temporal.append(declare_flag) #5
+        temporal.append(prior_value) #6
+        self.token.append(temporal) 
         self.change_timing[code_num] = name_
 
     def token_set(self,sourcedata):
@@ -115,46 +129,85 @@ class Trace:
         sourcedata_index = 1
         dict_name2type = {}
         dict_name2prior_value = {}
+        print(f'total_sourcedata:{sourcedata}')
         for i in range(len(self.code)):
             if main_flag == 0:
                 self.token_timing_append('','','',i)
                 if 'int main()' in self.code[i]:
                     main_flag = 1
             else: # main_flag == 1
-                if len(sourcedata[sourcedata_index]) == 0:
+                print(f'sourcedata:{sourcedata[sourcedata_index]},source_index:{sourcedata_index},len:{len(sourcedata[sourcedata_index])}')
+                if len(sourcedata[sourcedata_index]) == 0: 
                     self.token_timing_append('','','',i)
                 else:
-                    name_ = sourcedata[sourcedata_index][0][0]
-                    value_ = sourcedata[sourcedata_index][0][1]
+                    if len(sourcedata[sourcedata_index][0]) == 2: # 配列でない... 
+                        name_ = sourcedata[sourcedata_index][0][0]
+                        value_ = sourcedata[sourcedata_index][0][1]
 
-                    equal_idx = self.code[i].find('=')
-                    if equal_idx != -1: # イコールを含むなら...
-                        type_andName = ''.join(list(self.code[i])[:equal_idx])
-                        space_split = type_andName.strip(' ').replace(';','')
-                        space_split = space_split.split(' ')
-                        if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                           
+                        equal_idx = self.code[i].find('=')
+                        if equal_idx != -1: # イコールを含むなら...
+                            type_andName = ''.join(list(self.code[i])[:equal_idx])
+                            space_split = type_andName.strip(' ').replace(';','')
+                            space_split = space_split.split(' ')
+                            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理 # 1-1-1                         
+                                type_ = ''.join(space_split[0:len(space_split)-1])
+                                if type_ == 'float' or type_ == 'double':
+                                    value_ = float(value_)
+                                    value_ = round(value_,2)
+                                    value_ = str(value_ )
+                                self.token_timing_append(type_, name_, value_,i,declare_flag=1)
+                                dict_name2type[name_] = type_
+                                dict_name2prior_value[name_] = value_
+                            else: # イコールの左に1つだけトークンがある時，計算処理 
+                                type_ = dict_name2type[name_]
+                                prior_value = dict_name2prior_value[name_]
+                                if type_ == 'float' or type_ == 'double':
+                                    value_ = float(value_)
+                                    value_ = round(value_,2)
+                                    value_ = str(value_ )
+                                self.token_timing_append(type_, name_, value_,i,prior_value=prior_value)
+                                dict_name2prior_value[name_] = value_
+                        else: # イコールを含まない宣言のみの処理 
+                            type_andName = ''.join(list(self.code[i])[:equal_idx])
+                            space_split = type_andName.strip(' ').replace(';','')
+                            space_split = space_split.split(' ')
                             type_ = ''.join(space_split[0:len(space_split)-1])
-                            if type_ == 'float' or type_ == 'double':
-                                value_ = float(value_)
-                                value_ = str(value_ )
-                            self.token_timing_append(type_, name_, value_,i,declare_flag=1)
                             dict_name2type[name_] = type_
                             dict_name2prior_value[name_] = value_
+                            self.token_timing_append(type_, name_, '',i,declare_flag=1)
+                    else: # 配列の処理 # 1-2
+                        name_ = sourcedata[sourcedata_index][0][0]
+                        value_first = sourcedata[sourcedata_index][0][1]
+                        value_last = sourcedata[sourcedata_index][0][-1]
+                        equal_idx = self.code[i].find('=')
+                        if equal_idx != -1: # イコールを含むなら...
+                            type_andName = ''.join(list(self.code[i])[:equal_idx])
+                            space_split = type_andName.strip(' ').replace(';','')
+                            space_split = space_split.split(' ')
+                            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                        
+                                type_ = ''.join(space_split[0:len(space_split)-1])
+                                if type_ == 'float' or type_ == 'double':
+                                    value_first = float(value_first)
+                                    value_first = round(value_first,2)
+                                    value_first = str(value_first)
+                                    value_last = float(value_last)
+                                    value_last = round(value_last,2)
+                                    value_last = str(value_last)
+                                self.token_timing_append(type_, name_, value_first,i,array_center='...',array_last=value_last,declare_flag=1)
+                                dict_name2type[name_] = type_
+                                dict_name2prior_value[name_] = value_first
+                        else: # イコールを含まない宣言のみの処理
+                            type_andName = ''.join(list(self.code[i])[:equal_idx])
+                            space_split = type_andName.strip(' ').replace(';','')
+                            space_split = space_split.split(' ')
+                            type_ = ''.join(space_split[0:len(space_split)-1])
+                            dict_name2type[name_] = type_
+                            dict_name2prior_value[name_] = value_first
+                            self.token_timing_append(type_, name_, '',i,array_center='...',declare_flag=1)
 
-                        else: # イコールの左に1つだけトークンがある時，計算処理
-                            type_ = dict_name2type[name_]
-                            prior_value = dict_name2prior_value[name_]
-                            self.token_timing_append(type_, name_, value_,i,prior_value=prior_value)
-                            dict_name2prior_value[name_] = value_
-                    else: # イコールを含まない宣言のみの処理
-                        type_andName = ''.join(list(self.code[i])[:equal_idx])
-                        space_split = type_andName.strip(' ').replace(';','')
-                        space_split = space_split.split(' ')
-                        type_ = ''.join(space_split[0:len(space_split)-1])
-                        dict_name2type[name_] = type_
-                        dict_name2prior_value[name_] = value_
-                        self.token_timing_append(type_, name_, '',i,declare_flag=1)
                 sourcedata_index += 1
+        for i in range(len(self.token)):
+            print(f'index:{i}\ntoken:{self.token[i]}')
 
     
 
@@ -164,11 +217,13 @@ class Trace:
         self.trace_object[0]["text"] = now_token[0]
         self.trace_object[1]["text"] = now_token[1]
         self.trace_object[2]["text"] = now_token[2]
+        self.trace_object[3]["text"] = now_token[3]
+        self.trace_object[4]["text"] = now_token[4]
 
         if now_token[1] != '': #highlightされた部分が宣言文・代入文ならば...
             self.trace_object[2]["relief"] = "groove"
 
-            if now_token[3] == 0: # 代入処理
+            if now_token[-2] == 0: # 代入処理
                 for i in range(len(self.exist_object)):
                     if now_token[1] == self.exist_object[i][0]["text"]: # 今の行の変数と一致する定義済み変数がある時，valueのみ変更する
                         self.exist_object[i][1]["text"] = now_token[2]
@@ -232,6 +287,8 @@ class Trace:
         self.trace_object[0]["text"] = self.token[self.token_position][0]
         self.trace_object[1]["text"] = self.token[self.token_position][1]
         self.trace_object[2]["text"] = self.token[self.token_position][2]
+        self.trace_object[3]["text"] = self.token[self.token_position][3]
+        self.trace_object[4]["text"] = self.token[self.token_position][4]
         if self.token[self.token_position][1] != '': #highlightされた部分が代入文ならば...
             self.trace_object[2]["relief"] = "groove" # value表示に枠線を追加
         else:
@@ -240,7 +297,7 @@ class Trace:
         prior_pos = self.token_position+1
         prior_token = self.token[prior_pos]
         if prior_token[1] != '': #prior_tokenが宣言or代入
-            if prior_token[3] == 1: #現在の行の一つ下が変数の宣言の時，exist_objectからその変数をexist_objectから消去する．
+            if prior_token[-2] == 1: #現在の行の一つ下が変数の宣言の時，exist_objectからその変数をexist_objectから消去する．
                 for i in range(len(self.exist_object)): #exist_objectを探索
                     if self.exist_object[i][0]["text"] == prior_token[1]: # 名前が一致した部分を消去
                         self.exist_object[i][2] = 0
@@ -250,7 +307,7 @@ class Trace:
             else: # 代入処理の時prior_valueを参照し，exist_objectの値を変更
                 for i in range(len(self.exist_object)): #exist_objectを探索
                     if self.exist_object[i][0]["text"] == prior_token[1]: # 名前が一致した部分のvalueを変更
-                        self.exist_object[i][1]["text"] = prior_token[4]
+                        self.exist_object[i][1]["text"] = prior_token[-1]
                         return
 
     def up_highlight(self):

@@ -15,7 +15,7 @@ from Trace_manage import Trace
 def main():
     root = frk.FormK(24,20,0)
     root.title("C-Learning")
-    root.geometry("1000x600")
+    root.geometry("1500x900")
     root.result = tk.StringVar()
     style = ttk.Style() 
     style.configure('TButton', font = 
