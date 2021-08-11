@@ -1,8 +1,0 @@
-set logging file output.txt
-b 20
-run
-set logging on
-info locals
-set logging off
-continue
-quit
