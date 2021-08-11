@@ -1,6 +1,0 @@
-*.txt
-*.out
-Tkinter_tutorial/
-__pycache__/
-.DS_Store
-a.out.dSYM/
