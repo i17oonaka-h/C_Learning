@@ -27,48 +27,48 @@ def main():
          ) 
 
     tc = Trace()
-    tc.labels_set()
-    tc.trace_object_set(row=12,col=3)
-    tc.exist_object_set(row=12,col=10)
+    tc.program_labels_initialize()
+    tc.trace_object_initialize(row=12,col=3)
+    tc.exist_object_initialize(row=12,col=10)
     
     ### 不変なオブジェクトの設定 ###
     # 再生ボタンの設定
-    btnPlay = frk.ButtonK()
-    btnPlay["text"] = "▶︎"
-    btnPlay["command"] = tc.down_highlight()
-    btnPlay.layout = "7,21,1,2"
+    btn_highlight_down = frk.ButtonK()
+    btn_highlight_down["text"] = "▶︎"
+    btn_highlight_down["command"] = tc.down_highlight()
+    btn_highlight_down.layout = "7,21,1,2"
     # 巻き戻しボタンの設定
-    btn_play_back = frk.ButtonK()
-    btn_play_back["text"] = "◀︎"
-    btn_play_back["command"] = tc.up_highlight()
-    btn_play_back.layout = "5,21,1,2"
+    btn_highlight_up = frk.ButtonK()
+    btn_highlight_up["text"] = "◀︎"
+    btn_highlight_up["command"] = tc.up_highlight()
+    btn_highlight_up.layout = "5,21,1,2"
     # プログラム上昇ボタンの設定
-    btn_play_stop = frk.ButtonK()
-    btn_play_stop["text"] = "▲"
-    btn_play_stop["command"] = tc.up_code()
-    btn_play_stop.layout = "6,21,1,1"
+    btn_code_up = frk.ButtonK()
+    btn_code_up["text"] = "▲"
+    btn_code_up["command"] = tc.up_code()
+    btn_code_up.layout = "6,21,1,1"
     # プログラム下降ボタンの設定
-    btn_play_stop = frk.ButtonK()
-    btn_play_stop["text"] = "▼"
-    btn_play_stop["command"] = tc.down_code()
-    btn_play_stop.layout = "6,22,1,1"
+    btn_code_down = frk.ButtonK()
+    btn_code_down["text"] = "▼"
+    btn_code_down["command"] = tc.down_code()
+    btn_code_down.layout = "6,22,1,1"
     # ファイル読み込みボタンの設定
     btn_file_open = frk.ButtonK()
     btn_file_open["text"] = "file open"
     btn_file_open["command"] = tc.open_file()
     btn_file_open.layout = "1,21,3,1"
     # exist value の表示
-    exist_label = frk.LabelK()
-    exist_label["text"] = "exist variable"
-    exist_label.layout = "11,9,3,1"
-    exist_label["relief"] = "groove"
-    exist_label["bg"] = "#c0c0c0"
+    constView_exist = frk.LabelK()
+    constView_exist["text"] = "exist variable"
+    constView_exist.layout = "11,9,3,1"
+    constView_exist["relief"] = "groove"
+    constView_exist["bg"] = "#c0c0c0"
     # program progress　の表示
-    trace_label = frk.LabelK()
-    trace_label["text"] = "program progress"
-    trace_label.layout = "11,1,3,1"
-    trace_label["relief"] = "groove"
-    trace_label["bg"] = "#d7d7ff"
+    constView_progress = frk.LabelK()
+    constView_progress["text"] = "program progress"
+    constView_progress.layout = "11,1,3,1"
+    constView_progress["relief"] = "groove"
+    constView_progress["bg"] = "#d7d7ff"
 
     #オブジェクトをレイアウト通りに配置する
     root.set_layout()
