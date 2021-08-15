@@ -12,43 +12,53 @@ from tkinter.filedialog import askopenfilename, asksaveasfilename
 
 @dataclass
 class Trace:
-    labels: list = field(default_factory=list) # program labels( len(labels) == 20 )
-    code: list = field(default_factory=list) # code information
-    token: list = field(default_factory=list) # token information(len(code) == len(token))
-    change_timing: dict = field(default_factory=dict) # 変数が変更(定義)されるタイミング( 行数：変更あり(変数名)/変更なし('') )
-    highest_view: int = 0 # program labelsの最も上の表示位置
-    lowest_view: int = 19 # program labelsの最も下の表示位置
-    highlight_position:int = 0 # ハイライトの位置
-    token_position:int = highest_view+highlight_position # トレース表示の絶対位置
-    trace_object: list = field(default_factory=list) # トレース図のオブジェクトのまとまり
-    exist_object: list = field(default_factory=list) # 定義済み変数のオブジェクトのまとまり
+
+    program_labels: list = field(default_factory=list)
+    labels_highest_view: int = 0
+    labels_lowest_view: int = 19
+    highlight_position:int = 0
+    token_position:int = labels_highest_view+highlight_position
+
+    code_info: list = field(default_factory=list)
+    token: list = field(default_factory=list)
+    variable_change_timing: dict = field(default_factory=dict)
+       
+    trace_object: list = field(default_factory=list) # trace_object_initializeを参照
+    exist_object: list = field(default_factory=list) # exist_object_initializeを参照
+
     type_color: dict = field(default_factory=dict) # 型<->色の辞書
 
-    def view_move(self,move): # highest_viewの変更とそれに応じたhighlight_positionの変更
-        self.highest_view += move
-        self.lowest_view += move
-        self.token_position = self.highest_view+self.highlight_position
 
-    def highlight_move(self,move): # highlight_positionの変更とそれに応じたhighlight_positionの変更
+
+    # 汎用的なメソッド
+    def code_pos_move(self,move):
+        self.labels_highest_view += move
+        self.labels_lowest_view += move
+        self.token_position = self.labels_highest_view+self.highlight_position
+
+    def highlight_move(self,move):
         self.highlight_position += move
-        self.token_position = self.highest_view+self.highlight_position
+        self.token_position = self.labels_highest_view+self.highlight_position
     
-    def labels_set(self): # labelsの初期設定
+
+
+    # 初期化メソッド
+    def program_labels_initialize(self): # program_labelsの初期設定
         """
-        labels[0~19]:プログラムを表示する
+        program_labels[0~19]:プログラムを表示する
         """
         for i in range(20):
-            self.labels.append(frk.LabelK())
-            self.labels[i]["font"] = ("Arial", 16)
-            self.labels[i]["text"] = "\n"
+            self.program_labels.append(frk.LabelK())
+            self.program_labels[i]["font"] = ("Arial", 16)
+            self.program_labels[i]["text"] = "\n"
             if i == 0:
-                self.labels[i]["bg"] = "#ffff6d"
+                self.program_labels[i]["bg"] = "#ffff6d"
             else:
-                self.labels[i]["bg"] = "#ffffff"
-            self.labels[i]["anchor"] = "nw"
-            self.labels[i].layout = "1,{},10,1".format(i+1)
+                self.program_labels[i]["bg"] = "#ffffff"
+            self.program_labels[i]["anchor"] = "nw"
+            self.program_labels[i].layout = "1,{},10,1".format(i+1)
 
-    def trace_object_set(self,row=12,col=3):
+    def trace_object_initialize(self,row=12,col=3):
         """
         左上のrow,colを指定して3つのオブジェクトを自動で配置
         trace_object has 3 values.
@@ -75,9 +85,8 @@ class Trace:
         self.trace_object.append(initial_value_label) #2
         self.trace_object.append(array_value1_label) #3
         self.trace_object.append(array_value2_label) #4
-        
-    
-    def exist_object_set(self,row=12,col=10):
+           
+    def exist_object_initialize(self,row=12,col=10):
         """
         左上のrow,colを指定して( 3x4=12 )個のオブジェクトを自動で配置
         exist_object has 3 values.
@@ -87,133 +96,218 @@ class Trace:
         """
         for y in range(3):
             for x in range(4):
-                a = frk.LabelK()
-                a.layout = "{},{},1,1".format(row+2*x,col+4*y)
-                b = frk.LabelK()
-                b.layout = "{},{},1,2".format(row+2*x,col+1+4*y)
+                tmp_name_label = frk.LabelK()
+                tmp_name_label.layout = "{},{},1,1".format(row+2*x,col+4*y)
+                tmp_value_label = frk.LabelK()
+                tmp_value_label.layout = "{},{},1,2".format(row+2*x,col+1+4*y)
                 used_flag = 0
-                c = []
-                c.append(a)
-                c.append(b)
-                c.append(used_flag)
-                self.exist_object.append(c)
-    
-    def token_timing_append(self, type_, name_, value_, code_num, arrow_flag = 0, prior_value = '', declare_flag = 0): # token_setで使用
+                tmp_list_inList = []
+                tmp_list_inList.append(tmp_name_label)
+                tmp_list_inList.append(tmp_value_label)
+                tmp_list_inList.append(used_flag)
+                self.exist_object.append(tmp_list_inList)
+
+
+    # token_initializeで使用される関数群
+    """
+
+    # token_initialize <tokenの初期設定>
+    |
+    |- # sd_use_set <sourcedataを使用した設定>
+    |  |
+       |- # variable_set <変数時の設定>
+       |  |
+       |  |- # token_andTiming_set <トークンの作成と値の変更タイミングの保存>
+       |  |
+       |  |- # only_declare <宣言のみを行う行の時の設定>
+       |     |
+       |     |- # token_andTiming_set
+       |
+       |- # array_set <配列時の設定>
+       |  |
+       |  |- # token_andTiming_set
+       |  |
+       |  |- # only_declare
+       |     |
+       |     |- # token_andTiming_set
+
+    """
+    def token_initialize(self,sourcedata):
         """
         self.tokenは4つの要素をプログラムの行の数だけ持ちます．
         0:変数の型
         1:変数の名前
         2:変数のvalue (配列の時は hairetu[0]の値)
-        3: -> 記号
+        3: 配列の時「...」，それ以外なら「 」
         4:配列の時，hairetu[-1]の値
         5(-2):フラグ / 変数の宣言を行う行なら1，それ以外0(down_trace_change用)
         6(-1):以前，保持していた値を保持する(up_trace_change用)
         """
+        self.type_color = {'int':'#008000','float':'#1e90ff','double':'#0000cd','char':'#ffa500','unsignedchar':'#ffa500','double*':'#0000cd'}
+        main_flag = 0
+        sd_i = 1
+        dict_name2type = {}
+        dict_name2prior_value = {}
+        for code_i in range(len(self.code_info)):
+            if main_flag == 0:
+                self.token_andTiming_set('','','',code_i)
+                if 'int main()' in self.code_info[code_i]:
+                    main_flag = 1           
+            else:
+                dict_name2type,dict_name2prior_value = self.sd_use_set(
+                    sourcedata=sourcedata,
+                    sd_i=sd_i,
+                    code_i=code_i,
+                    dict_name2type=dict_name2type,
+                    dict_name2prior_value=dict_name2prior_value
+                )
+                sd_i += 1
+
+    def sd_use_set(self,sourcedata,sd_i,code_i,dict_name2type,dict_name2prior_value):
+        print(f'sourcedata:{sourcedata}\nsd_i:{sd_i}')
+        if len(sourcedata[sd_i]) == 0:
+            self.token_andTiming_set('','','',code_i)
+        else:
+            if len(sourcedata[sd_i][0]) == 2: # 配列でない...
+                name_ = sourcedata[sd_i][0][0]
+                value_ = sourcedata[sd_i][0][1]
+                dict_name2type,dict_name2prior_value = self.variable_set(
+                    name_=name_,
+                    value_=value_,
+                    code_i=code_i,
+                    dict_name2type=dict_name2type,
+                    dict_name2prior_value=dict_name2prior_value
+                    )   
+            else: # 配列の処理 # 1-2
+                name_ = sourcedata[sd_i][0][0]
+                value_first = sourcedata[sd_i][0][1]
+                value_last = sourcedata[sd_i][0][-1]
+                dict_name2type,dict_name2prior_value = self.array_set(
+                    name_=name_,
+                    value_first=value_first,
+                    value_last=value_last,
+                    code_i=code_i,
+                    dict_name2type=dict_name2type,
+                    dict_name2prior_value=dict_name2prior_value
+                )
+        return dict_name2type,dict_name2prior_value
+
+    def variable_set(self,name_,value_,code_i,dict_name2type,dict_name2prior_value):
+        equal_i = self.code_info[code_i].find('=')
+        if equal_i != -1:
+            type_andName = ''.join(list(self.code_info[code_i])[:equal_i])
+            type_andName = type_andName.strip(' ').replace(';','')
+            type_andName_list = type_andName.split(' ')
+
+            if len(type_andName_list) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                  
+                type_ = ''.join(type_andName_list[0:len(type_andName_list)-1])
+                if ( type_ == 'float' or type_ == 'double' ) and ( not('*' in type_) ):
+                    value_ = float(value_)
+                    value_ = round(value_,2)
+                    value_ = str(value_ )
+                self.token_andTiming_set(type_, name_, value_,code_i,declare_flag=1)
+                dict_name2type[name_] = type_
+                dict_name2prior_value[name_] = value_
+            
+            else: # イコールの左に1つだけトークンがある時，計算処理
+                type_ = dict_name2type[name_]
+                prior_value = dict_name2prior_value[name_]
+                if type_ == 'float' or type_ == 'double':
+                    value_ = float(value_)
+                    value_ = round(value_,2)
+                    value_ = str(value_ )
+                self.token_andTiming_set(type_, name_, value_,code_i,prior_value=prior_value)
+                dict_name2prior_value[name_] = value_
+
+        else: # イコールを含まない宣言のみの処理 
+            dict_name2type,dict_name2prior_value = self.only_declare(
+                name_=name_,
+                value_=value_,
+                code_i=code_i,
+                equal_i=equal_i,
+                dict_name2type=dict_name2type,
+                dict_name2prior_value=dict_name2prior_value
+                )
+        return dict_name2type,dict_name2prior_value
+
+    def array_set(self,name_,value_first,value_last,code_i,dict_name2type,dict_name2prior_value):
+        equal_i = self.code_info[code_i].find('=')
+        if equal_i != -1: # イコールを含むなら...
+            type_andName = ''.join(list(self.code_info[code_i])[:equal_i])
+            space_split = type_andName.strip(' ').replace(';','')
+            space_split = space_split.split(' ')
+            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                        
+                type_ = ''.join(space_split[0:len(space_split)-1])
+                if type_ == 'float' or type_ == 'double':
+                    value_first = float(value_first)
+                    value_first = round(value_first,2)
+                    value_first = str(value_first)
+                    value_last = float(value_last)
+                    value_last = round(value_last,2)
+                    value_last = str(value_last)
+                self.token_andTiming_set(type_, name_, value_first,code_i,array_center='...',array_last=value_last,declare_flag=1)
+                dict_name2type[name_] = type_
+                dict_name2prior_value[name_] = value_first
+        else: # イコールを含まない宣言のみの処理
+            dict_name2type,dict_name2prior_value = self.only_declare(
+                name_=name_,
+                value_=value_first,
+                code_i=code_i,
+                equal_i=equal_i,
+                dict_name2type=dict_name2type,
+                dict_name2prior_value=dict_name2prior_value,
+                array_center='...'
+                )
+        return dict_name2type,dict_name2prior_value
+
+    def token_andTiming_set(self, type_, name_, value_, code_num, array_center = '', array_last = '', declare_flag = 0, prior_value = ''):
         temporal = []
         temporal.append(type_) #0
         temporal.append(name_) #1
         temporal.append(value_) #2
-        if arrow_flag == 0:
-            temporal.append('')
-        else:
-            temporal.append('←') #3
-        temporal.append(prior_value) #4
+        temporal.append(array_center) #3
+        temporal.append(array_last) #4
         temporal.append(declare_flag) #5
         temporal.append(prior_value) #6
         self.token.append(temporal) 
-        self.change_timing[code_num] = name_
+        self.variable_change_timing[code_num] = name_
 
-    def token_set(self,sourcedata):
-        """
-        { 変数の型，変数の名前，変数のvalue }の塊をプログラムの行の数だけ生成
-        """
-        self.type_color = {'int':'#008000','float':'#1e90ff','double':'#0000cd','char':'#ffa500','unsignedchar':'#ffa500'}
-        main_flag = 0
-        sourcedata_index = 1
-        dict_name2type = {}
-        dict_name2prior_value = {}
-        print(f'total_sourcedata:{sourcedata}')
-        for i in range(len(self.code)):
-            if main_flag == 0:
-                self.token_timing_append('','','',i)
-                if 'int main()' in self.code[i]:
-                    main_flag = 1
-            else: # main_flag == 1
-                print(f'sourcedata:{sourcedata[sourcedata_index]},source_index:{sourcedata_index},len:{len(sourcedata[sourcedata_index])}')
-                if len(sourcedata[sourcedata_index]) == 0: 
-                    self.token_timing_append('','','',i)
-                else:
-                    if len(sourcedata[sourcedata_index][0]) == 2: # 配列でない... 
-                        name_ = sourcedata[sourcedata_index][0][0]
-                        value_ = sourcedata[sourcedata_index][0][1]
+    def only_declare(self,name_,value_,code_i,equal_i,dict_name2type,dict_name2prior_value,array_center=''):
+        type_andName = ''.join(list(self.code_info[code_i])[:equal_i])
+        type_andName = type_andName.strip(' ').replace(';','')
+        type_andName_list = type_andName.split(' ')
+        type_ = ''.join(type_andName_list[0:len(type_andName_list)-1])
+        dict_name2type[name_] = type_
+        dict_name2prior_value[name_] = value_
+        self.token_andTiming_set(type_, name_, '',code_i,array_center=array_center,declare_flag=1)
+        return dict_name2type,dict_name2prior_value
 
-                        equal_idx = self.code[i].find('=')
-                        if equal_idx != -1: # イコールを含むなら...
-                            type_andName = ''.join(list(self.code[i])[:equal_idx])
-                            space_split = type_andName.strip(' ').replace(';','')
-                            space_split = space_split.split(' ')
-                            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理 # 1-1-1                         
-                                type_ = ''.join(space_split[0:len(space_split)-1])
-                                if type_ == 'float' or type_ == 'double':
-                                    value_ = float(value_)
-                                    value_ = round(value_,2)
-                                    value_ = str(value_ )
-                                self.token_timing_append(type_, name_, value_,i,declare_flag=1)
-                                dict_name2type[name_] = type_
-                                dict_name2prior_value[name_] = value_
-                            else: # イコールの左に1つだけトークンがある時，計算処理 
-                                type_ = dict_name2type[name_]
-                                prior_value = dict_name2prior_value[name_]
-                                if type_ == 'float' or type_ == 'double':
-                                    value_ = float(value_)
-                                    value_ = round(value_,2)
-                                    value_ = str(value_ )
-                                self.token_timing_append(type_, name_, value_,i,prior_value=prior_value)
-                                dict_name2prior_value[name_] = value_
-                        else: # イコールを含まない宣言のみの処理 
-                            type_andName = ''.join(list(self.code[i])[:equal_idx])
-                            space_split = type_andName.strip(' ').replace(';','')
-                            space_split = space_split.split(' ')
-                            type_ = ''.join(space_split[0:len(space_split)-1])
-                            dict_name2type[name_] = type_
-                            dict_name2prior_value[name_] = value_
-                            self.token_timing_append(type_, name_, '',i,declare_flag=1)
-                    else: # 配列の処理 # 1-2
-                        name_ = sourcedata[sourcedata_index][0][0]
-                        value_first = sourcedata[sourcedata_index][0][1]
-                        value_last = sourcedata[sourcedata_index][0][-1]
-                        equal_idx = self.code[i].find('=')
-                        if equal_idx != -1: # イコールを含むなら...
-                            type_andName = ''.join(list(self.code[i])[:equal_idx])
-                            space_split = type_andName.strip(' ').replace(';','')
-                            space_split = space_split.split(' ')
-                            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                        
-                                type_ = ''.join(space_split[0:len(space_split)-1])
-                                if type_ == 'float' or type_ == 'double':
-                                    value_first = float(value_first)
-                                    value_first = round(value_first,2)
-                                    value_first = str(value_first)
-                                    value_last = float(value_last)
-                                    value_last = round(value_last,2)
-                                    value_last = str(value_last)
-                                self.token_timing_append(type_, name_, value_first,i,array_center='...',array_last=value_last,declare_flag=1)
-                                dict_name2type[name_] = type_
-                                dict_name2prior_value[name_] = value_first
-                        else: # イコールを含まない宣言のみの処理
-                            type_andName = ''.join(list(self.code[i])[:equal_idx])
-                            space_split = type_andName.strip(' ').replace(';','')
-                            space_split = space_split.split(' ')
-                            type_ = ''.join(space_split[0:len(space_split)-1])
-                            dict_name2type[name_] = type_
-                            dict_name2prior_value[name_] = value_first
-                            self.token_timing_append(type_, name_, '',i,array_center='...',declare_flag=1)
 
-                sourcedata_index += 1
-        for i in range(len(self.token)):
-            print(f'index:{i}\ntoken:{self.token[i]}')
-
+    # ボタン紐付け処理(一番上の処理)
+    """
+    
+    # 表示の下降処理
+    |
+    |- # down_highlight
+    |  |
+    |  |- # down_trace_change
+    |
+    |- # down_code
+    |  |
+       |- # down_trace_change
     
 
+    # 表示の上昇処理
+    |
+    |- # up_highlight
+    |  |
+    |  |- # up_trace_change
+    |
+    |- # up_code
+    |  |
+       |- # up_trace_change
+
+    """
     def down_trace_change(self):
         now_pos = self.token_position
         now_token = self.token[now_pos]
@@ -252,28 +346,28 @@ class Trace:
     def down_highlight(self):
         def x():
             if self.highlight_position != 19:
-                self.labels[self.highlight_position]["bg"] = "#ffffff"
+                self.program_labels[self.highlight_position]["bg"] = "#ffffff"
                 self.highlight_move(1)
-                self.labels[self.highlight_position]["bg"] = "#ffff6d"
-                if self.token_position < len(self.code):
+                self.program_labels[self.highlight_position]["bg"] = "#ffff6d"
+                if self.token_position < len(self.code_info):
                     self.down_trace_change()
         return x
 
     def down_code(self):
         """
-        labelsのプログラム表示を1つ下へ遷移する
+        program_labelsのプログラム表示を1つ下へ遷移する
         """
         def x():
-            #self.labelsの最下部がプログラムの終行でないか．
-            print('lowest_view:{}'.format(self.lowest_view))
-            if self.lowest_view < len(self.code)-1:
-                self.view_move(1)
+            #self.program_labelsの最下部がプログラムの終行でないか．
+            print('labels_lowest_view:{}'.format(self.labels_lowest_view))
+            if self.labels_lowest_view < len(self.code_info)-1:
+                self.code_pos_move(1)
                 for i in range(20):
-                    if self.highest_view+i >= len(self.code):
-                        self.labels[i]["text"] = ''
+                    if self.labels_highest_view+i >= len(self.code_info):
+                        self.program_labels[i]["text"] = ''
                     else:
-                        self.labels[i]["text"] = self.code[self.highest_view+i]
-                if self.token_position < len(self.code):
+                        self.program_labels[i]["text"] = self.code_info[self.labels_highest_view+i]
+                if self.token_position < len(self.code_info):
                     self.down_trace_change()
         return x
 
@@ -316,10 +410,10 @@ class Trace:
     def up_highlight(self):
         def x():
             if self.highlight_position != 0: # highlight_position = 0 の時,上にこれ以上上がらない
-                self.labels[self.highlight_position]["bg"] = "#ffffff" # 今のhighlight_positionの背景を白に
+                self.program_labels[self.highlight_position]["bg"] = "#ffffff" # 今のhighlight_positionの背景を白に
                 self.highlight_move(-1) # highlight_position・token_positionを更新
-                self.labels[self.highlight_position]["bg"] = "#ffff6d" # 更新後のhighlight_positionの背景を黄色に
-                if self.token_position+1 < len(self.code): 
+                self.program_labels[self.highlight_position]["bg"] = "#ffff6d" # 更新後のhighlight_positionの背景を黄色に
+                if self.token_position+1 < len(self.code_info): 
                     self.up_trace_change()   
         return x
     
@@ -328,15 +422,15 @@ class Trace:
         表示範囲を超える行数のプログラムの行を管理します．
         """
         def x():
-            #self.labelsの最上部がプログラムの1行目でないか．
-            if self.highest_view != 0:
-                self.view_move(-1)
+            #self.program_labelsの最上部がプログラムの1行目でないか．
+            if self.labels_highest_view != 0:
+                self.code_pos_move(-1)
                 for i in range(20):
-                    if self.highest_view+i >= len(self.code):
-                        self.labels[i]["text"] = ''
+                    if self.labels_highest_view+i >= len(self.code_info):
+                        self.program_labels[i]["text"] = ''
                     else:
-                        self.labels[i]["text"] = self.code[self.highest_view+i]
-                if self.token_position+1 < len(self.code):
+                        self.program_labels[i]["text"] = self.code_info[self.labels_highest_view+i]
+                if self.token_position+1 < len(self.code_info):
                     self.up_trace_change()
 
         return x
@@ -352,9 +446,9 @@ class Trace:
             with open(filepath, "r") as input_f:
                 text = input_f.readlines()
                 for i in range(len(text)):
-                    self.code.append(text[i])
+                    self.code_info.append(text[i])
                     if i < 20:
-                        self.labels[i]["text"] = text[i]
+                        self.program_labels[i]["text"] = text[i]
             
-            self.token_set(sourcedata)
+            self.token_initialize(sourcedata)
         return x

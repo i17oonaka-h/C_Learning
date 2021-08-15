@@ -72,8 +72,8 @@ class Trace:
         array_value1_label = frk.LabelK()
         array_value2_label = frk.LabelK()
         type_label.layout = "{},{},{},{}".format(row,col+2,4,1)
-        name_label.layout = "{},{},{},{}".format(row+4,col,1,1)
-        initial_value_label.layout = "{},{},{},{}".format(row+4,col+1,1,2)
+        name_label.layout = "{},{},{},{}".format(row+4,col,1,2)
+        initial_value_label.layout = "{},{},{},{}".format(row+4,col+1,2,2)
         array_value1_label.layout = "{},{},{},{}".format(row+5,col+1,1,2)
         array_value2_label.layout = "{},{},{},{}".format(row+6,col+1,1,2)
         initial_value_label["relief"] = 'flat'
@@ -143,7 +143,7 @@ class Trace:
         5(-2):フラグ / 変数の宣言を行う行なら1，それ以外0(down_trace_change用)
         6(-1):以前，保持していた値を保持する(up_trace_change用)
         """
-        self.type_color = {'int':'#008000','float':'#1e90ff','double':'#0000cd','char':'#ffa500','unsignedchar':'#ffa500'}
+        self.type_color = {'int':'#008000','float':'#1e90ff','double':'#0000cd','char':'#ffa500','unsignedchar':'#ffa500','double*':'#0000cd'}
         main_flag = 0
         sd_i = 1
         dict_name2type = {}
@@ -164,11 +164,11 @@ class Trace:
                 sd_i += 1
 
     def sd_use_set(self,sourcedata,sd_i,code_i,dict_name2type,dict_name2prior_value):
-        print(f'sourcedata:{sourcedata}\nsd_i:{sd_i}')
         if len(sourcedata[sd_i]) == 0:
             self.token_andTiming_set('','','',code_i)
         else:
-            if len(sourcedata[sd_i][0]) == 2: # 配列でない...
+            token_type = sourcedata[sd_i][1]
+            if token_type == 'variable' or token_type == 'pointer': # 配列でない...
                 name_ = sourcedata[sd_i][0][0]
                 value_ = sourcedata[sd_i][0][1]
                 dict_name2type,dict_name2prior_value = self.variable_set(
@@ -178,7 +178,7 @@ class Trace:
                     dict_name2type=dict_name2type,
                     dict_name2prior_value=dict_name2prior_value
                     )   
-            else: # 配列の処理 # 1-2
+            elif token_type == 'array':
                 name_ = sourcedata[sd_i][0][0]
                 value_first = sourcedata[sd_i][0][1]
                 value_last = sourcedata[sd_i][0][-1]
@@ -199,9 +199,9 @@ class Trace:
             type_andName = type_andName.strip(' ').replace(';','')
             type_andName_list = type_andName.split(' ')
 
-            if len(type_andName_list) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                     
+            if len(type_andName_list) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                  
                 type_ = ''.join(type_andName_list[0:len(type_andName_list)-1])
-                if type_ == 'float' or type_ == 'double':
+                if ( type_ == 'float' or type_ == 'double' ) and ( not('*' in type_) ):
                     value_ = float(value_)
                     value_ = round(value_,2)
                     value_ = str(value_ )

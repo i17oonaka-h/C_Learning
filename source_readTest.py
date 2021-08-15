@@ -2,6 +2,7 @@ import subprocess
 from subprocess import PIPE
 import re 
 import os
+from copy import deepcopy
 
 '''
 やること：ポインタへの対応
@@ -11,9 +12,10 @@ print('GDB動作中．．．')
 
 ###使用する正規表現のパターン（正規表現のパターン見直し）
 #1：
-pattern = r'([A-Za-z0-9_]*)\s*=\s*([A-Za-z0-9._]+)' #正規表現のパターン
-pattern1 = r'([A-Za-z0-9_]*)\s*=\s*{(.*)}'
-pattern2 = r'([A-Za-z0-9_]*)\s*=\s*\"(.*)\"'
+pattern_local = r'([A-Za-z0-9_]*)\s*=\s*([A-Za-z0-9._]+)' #正規表現のパターン
+pattern_except = r'([A-Za-z0-9_]*)\s*=\s*(0x[A-Za-z0-9._]*)'
+pattern_array = r'([A-Za-z0-9_]*)\s*=\s*{(.*)}'
+pattern_array_char = r'([A-Za-z0-9_]*)\s*=\s*\"(.*)\"'
 #2：
 #通常変数
 pattern_variable_list = []
@@ -83,12 +85,12 @@ for l in variable_list:
     with open('ex_out.txt', 'w') as output_file:
         pass
 
-    input_data = 'set logging file ex_out.txt\nb main\nrun\nset logging on\n'+'p &'+l[0]+'\nset logging off\ncontinue\nquit\n'
+    input_data = 'set logging file ex_out.txt\nb main\nrun\nset logging on\n'+'p &'+l+'\nset logging off\ncontinue\nquit\n'
     proc = subprocess.run(['gdb', exe_name], input=input_data, stdout=PIPE, stderr=PIPE, text=True)
 
     with open('ex_out.txt') as output_file:
         contents = output_file.read()   
-        
+
     contents = contents.replace('(gdb) ', '')
 
     result = re.findall(pattern_address, contents)
@@ -97,6 +99,10 @@ for l in variable_list:
 
 ###回数分のローカル変数のリストを作成
 for i in range(first, last+1):
+
+    #初期化
+    tmp_list = []
+    except_list = []
 
     #出力ファイルのクリア
     with open('output.txt', 'w') as output_file:
@@ -113,15 +119,28 @@ for i in range(first, last+1):
 
     if contents=='':
         continue
-    result = re.findall(pattern, contents)
+    #通常変数
+    result = re.findall(pattern_except, contents)
     if len(result)!=0:
+        except_list = deepcopy(result)
+    result = re.findall(pattern_local, contents)
+    if len(result)!=0:
+        for x in result:
+            for y in except_list:
+                if x == y:
+                    result.remove(x)
         local_list.append(result)
-    result = re.findall(pattern1, contents)
+    #配列
+    result = re.findall(pattern_array, contents)
     if len(result)!=0:
-        array_list.append(result)
-    result = re.findall(pattern2, contents)
+        for x in result:
+            tmp_list.append(x)
+    result = re.findall(pattern_array_char, contents)
     if len(result)!=0:
-        array_list.append(result)
+        for x in result:
+            tmp_list.append(x)
+    array_list.append(tmp_list)
+    #ポインター
     result = re.findall(pattern_pointer, contents)
     if len(result)!=0:
         for l in result:
@@ -132,7 +151,7 @@ for i in range(first, last+1):
                     pointer_list.append(tuple([l[0],key]))
             if flag == False:
                 pointer_list.append(tuple([l[0],'']))
-                
+
 print('\n')
 print(local_list)
 print('\n')

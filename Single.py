@@ -32,6 +32,17 @@ def main():
     tc.exist_object_initialize(row=12,col=10)
     
     ### 不変なオブジェクトの設定 ###
+    # 配列の表示遷移
+    btn_value_down = frk.ButtonK()
+    btn_value_down["text"] = "◀︎"
+    #btn_value_down["command"] = tc.down_highlight()
+    btn_value_down.layout = "16,6,1,1"
+
+    btn_value_up = frk.ButtonK()
+    btn_value_up["text"] = "▶︎"
+    btn_value_up["command"] = tc.up_code()
+    btn_value_up.layout = "17,6,1,1"
+
     # 再生ボタンの設定
     btn_highlight_down = frk.ButtonK()
     btn_highlight_down["text"] = "▶︎"
