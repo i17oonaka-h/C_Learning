@@ -45,9 +45,7 @@ def create_arraytoken(array_list, token_type='array'):
 
 
 def get_token(filepath):
-    filename = None
-    for f in glob.glob(filepath):
-        filename = os.path.split(f)[1]
+    filename = os.path.basename(filepath)
 
     print('GDB動作中．．．')
 
@@ -91,7 +89,7 @@ def get_token(filepath):
     flag = False
 
     ###実行ファイル生成
-    proc = subprocess.run(['gcc', '-g', '-O0', 'Test4.c'])
+    proc = subprocess.run(['gcc', '-g', '-O0', filename])
 
     if os.name == 'nt': #windows
         exe_name = 'a.exe'
@@ -99,7 +97,7 @@ def get_token(filepath):
         exe_name = 'a.out'
 
     ###対象ファイルを開いて文字列を取得
-    with open('Test4.c') as f:
+    with open(filename) as f:
         contents = f.read()
 
     ###実行行数獲得
