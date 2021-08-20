@@ -28,6 +28,8 @@ class Trace:
     exist_object: list = field(default_factory=list) # exist_object_initializeを参照
 
     type_color: dict = field(default_factory=dict) # 型<->色の辞書
+    address_dict: dict = field(default_factory=dict)
+    dict_name2type: dict = field(default_factory=dict)
 
 
 
@@ -80,7 +82,17 @@ class Trace:
         self.trace_object.append(type_label) #0
         self.trace_object.append(name_label) #1
         self.trace_object.append(initial_value_label) #2
-           
+    
+    def view_message_box(self,click_pos):
+        def x():
+            value_name = self.exist_object[click_pos][0]["text"]
+            print(value_name)
+            print(self.dict_name2type)
+            print(self.address_dict)
+            if value_name != '':
+                tk.messagebox.showinfo(f'{value_name} information',f'変数の型:{self.dict_name2type[value_name]}\n変数名:{value_name}\n変数のアドレス:{self.address_dict[value_name]}')
+        return x
+
     def exist_object_initialize(self,row=12,col=10):
         """
         左上のrow,colを指定して( 3x4=12 )個のオブジェクトを自動で配置
@@ -91,7 +103,7 @@ class Trace:
         """
         for y in range(3):
             for x in range(4):
-                tmp_name_label = frk.LabelK()
+                tmp_name_label = frk.ButtonK()
                 tmp_name_label.layout = "{},{},1,1".format(row+2*x,col+4*y)
                 tmp_value_label = frk.LabelK()
                 tmp_value_label.layout = "{},{},1,2".format(row+2*x,col+1+4*y)
@@ -158,6 +170,7 @@ class Trace:
                 sd_i += 1
 
         print(f'token:{self.token}')
+        self.dict_name2type = dict_name2type
 
     def sd_use_set(self,sourcedata,sd_i,code_i,dict_name2type,dict_name2prior_value):
         if len(sourcedata[sd_i]) == 0:
@@ -478,7 +491,7 @@ class Trace:
             )
             if not filepath:
                 return
-            sourcedata = get_token(filepath)
+            sourcedata,self.address_dict = get_token(filepath)
             with open(filepath, "r") as input_f:
                 text = input_f.readlines()
                 for i in range(len(text)):

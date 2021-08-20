@@ -30,6 +30,8 @@ def main():
     tc.program_labels_initialize()
     tc.trace_object_initialize(row=12,col=3)
     tc.exist_object_initialize(row=12,col=10)
+    for i in range(12):
+        tc.exist_object[i][0]["command"] = tc.view_message_box(i)
     
     ### 不変なオブジェクトの設定 ###
     # 配列の表示遷移

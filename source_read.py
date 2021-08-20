@@ -206,7 +206,7 @@ def get_token(filepath):
     print(f'ret_list:{ret_list}')
     print(address_dictionary)
     print('完了！')
-    return ret_list
+    return ret_list,address_dictionary
 
 if __name__ == '__main__':
     filepath = '/Users/i17oonaka/workspace/souzouEnsyu/Test4.c'
