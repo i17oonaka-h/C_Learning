@@ -18,6 +18,7 @@ class Trace:
     labels_lowest_view: int = 19
     highlight_position:int = 0
     token_position:int = labels_highest_view+highlight_position
+    array_position:int = 0
 
     code_info: list = field(default_factory=list)
     token: list = field(default_factory=list)
@@ -35,10 +36,12 @@ class Trace:
         self.labels_highest_view += move
         self.labels_lowest_view += move
         self.token_position = self.labels_highest_view+self.highlight_position
+        self.array_position = 0
 
     def highlight_move(self,move):
         self.highlight_position += move
         self.token_position = self.labels_highest_view+self.highlight_position
+        self.array_position = 0
     
 
 
@@ -69,22 +72,14 @@ class Trace:
         type_label = frk.LabelK()
         name_label = frk.LabelK()
         initial_value_label = frk.LabelK()
-        array_value1_label = frk.LabelK()
-        array_value2_label = frk.LabelK()
         type_label.layout = "{},{},{},{}".format(row,col+2,4,1)
-        name_label.layout = "{},{},{},{}".format(row+4,col,1,2)
+        name_label.layout = "{},{},{},{}".format(row+4,col,2,1)
         initial_value_label.layout = "{},{},{},{}".format(row+4,col+1,2,2)
-        array_value1_label.layout = "{},{},{},{}".format(row+5,col+1,1,2)
-        array_value2_label.layout = "{},{},{},{}".format(row+6,col+1,1,2)
         initial_value_label["relief"] = 'flat'
-        array_value1_label["relief"] = 'flat'
-        array_value2_label["relief"] = 'flat'
         type_label["anchor"] = "se"
         self.trace_object.append(type_label) #0
         self.trace_object.append(name_label) #1
         self.trace_object.append(initial_value_label) #2
-        self.trace_object.append(array_value1_label) #3
-        self.trace_object.append(array_value2_label) #4
            
     def exist_object_initialize(self,row=12,col=10):
         """
@@ -135,13 +130,12 @@ class Trace:
     def token_initialize(self,sourcedata):
         """
         self.tokenは4つの要素をプログラムの行の数だけ持ちます．
-        0:変数の型
-        1:変数の名前
-        2:変数のvalue (配列の時は hairetu[0]の値)
-        3: 配列の時「...」，それ以外なら「 」
-        4:配列の時，hairetu[-1]の値
-        5(-2):フラグ / 変数の宣言を行う行なら1，それ以外0(down_trace_change用)
-        6(-1):以前，保持していた値を保持する(up_trace_change用)
+        0:宣言代入フラグ→ 宣言文のとき1を持ちそれ以外で0
+        1:値が上書きされた際に，古い値を保持する
+        2:扱う変数の種類，変数(variable) or 配列(array) or ポインタ(pointer)
+        3:変数の型を保持
+        4:変数名を保持
+        5~:変数の値を保持．配列の場合には後ろにさらに値が追加される
         """
         self.type_color = {'int':'#008000','float':'#1e90ff','double':'#0000cd','char':'#ffa500','unsignedchar':'#ffa500','double*':'#0000cd'}
         main_flag = 0
@@ -163,6 +157,8 @@ class Trace:
                 )
                 sd_i += 1
 
+        print(f'token:{self.token}')
+
     def sd_use_set(self,sourcedata,sd_i,code_i,dict_name2type,dict_name2prior_value):
         if len(sourcedata[sd_i]) == 0:
             self.token_andTiming_set('','','',code_i)
@@ -176,23 +172,24 @@ class Trace:
                     value_=value_,
                     code_i=code_i,
                     dict_name2type=dict_name2type,
-                    dict_name2prior_value=dict_name2prior_value
+                    dict_name2prior_value=dict_name2prior_value,
+                    val_type=token_type
                     )   
             elif token_type == 'array':
                 name_ = sourcedata[sd_i][0][0]
-                value_first = sourcedata[sd_i][0][1]
-                value_last = sourcedata[sd_i][0][-1]
+                value_len = len(sourcedata[sd_i][0])
+                values_ = sourcedata[sd_i][0][1:value_len]
                 dict_name2type,dict_name2prior_value = self.array_set(
                     name_=name_,
-                    value_first=value_first,
-                    value_last=value_last,
+                    values_=values_,
                     code_i=code_i,
                     dict_name2type=dict_name2type,
-                    dict_name2prior_value=dict_name2prior_value
+                    dict_name2prior_value=dict_name2prior_value,
+                    val_type=token_type
                 )
         return dict_name2type,dict_name2prior_value
 
-    def variable_set(self,name_,value_,code_i,dict_name2type,dict_name2prior_value):
+    def variable_set(self,name_,value_,code_i,dict_name2type,dict_name2prior_value,val_type):
         equal_i = self.code_info[code_i].find('=')
         if equal_i != -1:
             type_andName = ''.join(list(self.code_info[code_i])[:equal_i])
@@ -205,7 +202,7 @@ class Trace:
                     value_ = float(value_)
                     value_ = round(value_,2)
                     value_ = str(value_ )
-                self.token_andTiming_set(type_, name_, value_,code_i,declare_flag=1)
+                self.token_andTiming_set(type_, name_, value_,code_i,declare_flag=1,val_type=val_type)
                 dict_name2type[name_] = type_
                 dict_name2prior_value[name_] = value_
             
@@ -216,7 +213,7 @@ class Trace:
                     value_ = float(value_)
                     value_ = round(value_,2)
                     value_ = str(value_ )
-                self.token_andTiming_set(type_, name_, value_,code_i,prior_value=prior_value)
+                self.token_andTiming_set(type_, name_, value_,code_i,prior_value=prior_value,val_type=val_type)
                 dict_name2prior_value[name_] = value_
 
         else: # イコールを含まない宣言のみの処理 
@@ -230,56 +227,64 @@ class Trace:
                 )
         return dict_name2type,dict_name2prior_value
 
-    def array_set(self,name_,value_first,value_last,code_i,dict_name2type,dict_name2prior_value):
+    def array_set(self,name_,values_,code_i,dict_name2type,dict_name2prior_value,val_type):
         equal_i = self.code_info[code_i].find('=')
+        name_ = name_ + '[0]'
         if equal_i != -1: # イコールを含むなら...
             type_andName = ''.join(list(self.code_info[code_i])[:equal_i])
             space_split = type_andName.strip(' ').replace(';','')
             space_split = space_split.split(' ')
-            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                        
+            if len(space_split) > 1: # イコールの左側に2つ以上のトークンがある時，宣言+初期化処理                       
                 type_ = ''.join(space_split[0:len(space_split)-1])
-                if type_ == 'float' or type_ == 'double':
-                    value_first = float(value_first)
-                    value_first = round(value_first,2)
-                    value_first = str(value_first)
-                    value_last = float(value_last)
-                    value_last = round(value_last,2)
-                    value_last = str(value_last)
-                self.token_andTiming_set(type_, name_, value_first,code_i,array_center='...',array_last=value_last,declare_flag=1)
+                self.token_andTiming_sets(type_, name_, values_,code_i,declare_flag=1,val_type='array')
                 dict_name2type[name_] = type_
-                dict_name2prior_value[name_] = value_first
+                dict_name2prior_value[name_] = values_
         else: # イコールを含まない宣言のみの処理
             dict_name2type,dict_name2prior_value = self.only_declare(
                 name_=name_,
-                value_=value_first,
+                value_=values_,
                 code_i=code_i,
                 equal_i=equal_i,
                 dict_name2type=dict_name2type,
-                dict_name2prior_value=dict_name2prior_value,
-                array_center='...'
+                dict_name2prior_value=dict_name2prior_value
                 )
         return dict_name2type,dict_name2prior_value
 
-    def token_andTiming_set(self, type_, name_, value_, code_num, array_center = '', array_last = '', declare_flag = 0, prior_value = ''):
+    def token_andTiming_set(self, type_, name_, value_, code_num, declare_flag = 0, prior_value = '', val_type='variable'):
         temporal = []
-        temporal.append(type_) #0
-        temporal.append(name_) #1
-        temporal.append(value_) #2
-        temporal.append(array_center) #3
-        temporal.append(array_last) #4
-        temporal.append(declare_flag) #5
-        temporal.append(prior_value) #6
-        self.token.append(temporal) 
+        temporal.append(declare_flag) #0
+        temporal.append(prior_value) #1
+        temporal.append(val_type) #2
+        temporal.append(type_) #3
+        temporal.append(name_) #4
+        temporal.append(value_) #5
+        self.token.append(temporal)
         self.variable_change_timing[code_num] = name_
 
-    def only_declare(self,name_,value_,code_i,equal_i,dict_name2type,dict_name2prior_value,array_center=''):
+    def token_andTiming_sets(self, type_, name_, values_, code_num, declare_flag = 0, prior_value = '', val_type='variable'):
+        temporal = []
+        temporal.append(declare_flag) #0
+        temporal.append(prior_value) #1
+        temporal.append(val_type) #2
+        temporal.append(type_) #3
+        temporal.append(name_) #4
+        for value_ in values_:
+            if type_ == 'float' or type_ == 'double':
+                    value_ = float(value_)
+                    value_ = round(value_,2)
+                    value_ = str(value_)
+            temporal.append(value_) #5~
+        self.token.append(temporal)
+        self.variable_change_timing[code_num] = name_
+
+    def only_declare(self,name_,value_,code_i,equal_i,dict_name2type,dict_name2prior_value):
         type_andName = ''.join(list(self.code_info[code_i])[:equal_i])
         type_andName = type_andName.strip(' ').replace(';','')
         type_andName_list = type_andName.split(' ')
         type_ = ''.join(type_andName_list[0:len(type_andName_list)-1])
         dict_name2type[name_] = type_
         dict_name2prior_value[name_] = value_
-        self.token_andTiming_set(type_, name_, '',code_i,array_center=array_center,declare_flag=1)
+        self.token_andTiming_set(type_, name_, '',code_i,declare_flag=1)
         return dict_name2type,dict_name2prior_value
 
 
@@ -311,34 +316,32 @@ class Trace:
     def down_trace_change(self):
         now_pos = self.token_position
         now_token = self.token[now_pos]
-        self.trace_object[0]["text"] = now_token[0]
-        self.trace_object[1]["text"] = now_token[1]
-        self.trace_object[2]["text"] = now_token[2]
-        self.trace_object[3]["text"] = now_token[3]
-        self.trace_object[4]["text"] = now_token[4]
+        self.trace_object[0]["text"] = now_token[3]
+        self.trace_object[1]["text"] = now_token[4]
+        self.trace_object[2]["text"] = now_token[5]
 
-        if now_token[1] != '': #highlightされた部分が宣言文・代入文ならば...
+        if now_token[4] != '': #highlightされた部分が宣言文・代入文ならば...
             self.trace_object[2]["relief"] = "groove"
 
-            if now_token[-2] == 0: # 代入処理
+            if now_token[0] == 0: # 代入処理
                 for i in range(len(self.exist_object)):
-                    if now_token[1] == self.exist_object[i][0]["text"]: # 今の行の変数と一致する定義済み変数がある時，valueのみ変更する
-                        self.exist_object[i][1]["text"] = now_token[2]
+                    if now_token[4] == self.exist_object[i][0]["text"]: # 今の行の変数と一致する定義済み変数がある時，valueのみ変更する
+                        self.exist_object[i][1]["text"] = now_token[5]
                         return # 関数の終了
             else: # 変数の宣言    
                 # 以下はまだexist_objectに変数がない == 未定義の時の処理
                 for i in range(len(self.exist_object)): # exist_objectの空きを検索し，空きがあれば入れる
                     if self.exist_object[i][2] == 0:
-                        self.exist_object[i][0]["text"] = self.token[now_pos][1]
-                        self.exist_object[i][0]["fg"] = self.type_color[self.token[now_pos][0]]
-                        self.exist_object[i][1]["text"] = self.token[now_pos][2]
+                        self.exist_object[i][0]["text"] = self.token[now_pos][4]
+                        self.exist_object[i][0]["fg"] = self.type_color[self.token[now_pos][3]]
+                        self.exist_object[i][1]["text"] = self.token[now_pos][5]
                         self.exist_object[i][2] = 1
                         return
                 for i in range(len(self.exist_object)): # 全てが埋まっていた時，空き状態をリセットする
                     self.exist_object[i][2] = 0
                 self.exist_object[0][2] = 1
-                self.exist_object[0][0]["text"] = self.token[self.token_position][1]
-                self.exist_object[0][1]["text"] = self.token[self.token_position][2]
+                self.exist_object[0][0]["text"] = self.token[self.token_position][4]
+                self.exist_object[0][1]["text"] = self.token[self.token_position][5]
 
         else: # 宣言・代入文でない...
             self.trace_object[2]["relief"] = "flat"
@@ -381,11 +384,9 @@ class Trace:
         1:変数の名前の表示
         2:変数のvalueの表示
         """
-        self.trace_object[0]["text"] = self.token[self.token_position][0]
-        self.trace_object[1]["text"] = self.token[self.token_position][1]
-        self.trace_object[2]["text"] = self.token[self.token_position][2]
-        self.trace_object[3]["text"] = self.token[self.token_position][3]
-        self.trace_object[4]["text"] = self.token[self.token_position][4]
+        self.trace_object[0]["text"] = self.token[self.token_position][3]
+        self.trace_object[1]["text"] = self.token[self.token_position][4]
+        self.trace_object[2]["text"] = self.token[self.token_position][5]
         if self.token[self.token_position][1] != '': #highlightされた部分が代入文ならば...
             self.trace_object[2]["relief"] = "groove" # value表示に枠線を追加
         else:
@@ -393,18 +394,18 @@ class Trace:
         
         prior_pos = self.token_position+1
         prior_token = self.token[prior_pos]
-        if prior_token[1] != '': #prior_tokenが宣言or代入
-            if prior_token[-2] == 1: #現在の行の一つ下が変数の宣言の時，exist_objectからその変数をexist_objectから消去する．
+        if prior_token[4] != '': #prior_tokenが宣言or代入
+            if prior_token[0] == 1: #現在の行の一つ下が変数の宣言の時，exist_objectからその変数をexist_objectから消去する．
                 for i in range(len(self.exist_object)): #exist_objectを探索
-                    if self.exist_object[i][0]["text"] == prior_token[1]: # 名前が一致した部分を消去
+                    if self.exist_object[i][0]["text"] == prior_token[4]: # 名前が一致した部分を消去
                         self.exist_object[i][2] = 0
                         self.exist_object[i][0]["text"] = ""
                         self.exist_object[i][1]["text"] = ""
                         return
             else: # 代入処理の時prior_valueを参照し，exist_objectの値を変更
                 for i in range(len(self.exist_object)): #exist_objectを探索
-                    if self.exist_object[i][0]["text"] == prior_token[1]: # 名前が一致した部分のvalueを変更
-                        self.exist_object[i][1]["text"] = prior_token[-1]
+                    if self.exist_object[i][0]["text"] == prior_token[4]: # 名前が一致した部分のvalueを変更
+                        self.exist_object[i][1]["text"] = prior_token[1]
                         return
 
     def up_highlight(self):
@@ -434,6 +435,41 @@ class Trace:
                     self.up_trace_change()
 
         return x
+
+
+    def up_array_view(self):
+        def x():
+            now_view_type = self.token[self.token_position][2]
+            now_token = self.token[self.token_position]
+            print(f'now_token{now_token}')
+            print(f'now_view_type:{now_view_type}')
+            if now_view_type == 'array':
+                array_length = len(now_token[5:])
+                if self.array_position+1 < array_length:
+                    self.array_position += 1
+                    self.trace_object[2]["text"] = now_token[5+self.array_position]
+                    array_num = f'[{self.array_position}]'
+                    self.trace_object[1]["text"] = now_token[4] + array_num
+        return x
+    
+    def down_array_view(self):
+        def x():
+            now_view_type = self.token[self.token_position][2]
+            now_token = self.token[self.token_position]
+            print(f'now_token{now_token}')
+            print(f'now_view_type:{now_view_type}')
+            if now_view_type == 'array':
+                if self.array_position-1 >= 0:
+                    self.array_position -= 1
+                    self.trace_object[2]["text"] = now_token[5+self.array_position]
+                    array_num = f'[{self.array_position}]'
+                    self.trace_object[1]["text"] = now_token[4] + array_num
+        return x
+
+                
+
+
+
 
     def open_file(self):
         def x():
