@@ -191,18 +191,44 @@ def get_token(filepath):
                 if flag == False:
                     pointer_list.append([tuple([l[0],''])])
 
+    local_flag=False
+    array_flag=False
+    pointer_flag=False
     if len(local_list) != 0:    
-        ret_list = create_token(local_list, token_type='variable')
-        print(f'local_list.shape:{len(ret_list)}\nlocal_list:{ret_list}\n')
+        local_list = create_token(local_list, token_type='variable')
+        local_flag=True
     if len(array_list) != 0:
-        print(f'array_list.shape:{len(array_list)}\narray_list:{array_list}\n')
         array_list = create_arraytoken(array_list, token_type='array')
-        
+        array_flag=True
     if len(pointer_list) != 0:
         pointer_list = create_token(pointer_list, token_type='pointer')
-        print(f'pointer_list.shape:{len(pointer_list)}\npointer_list:{pointer_list}\n')
-        
-    ret_list = list(np.array(ret_list) + np.array(array_list) + np.array(pointer_list))
+        pointer_flag=True
+    
+    first_flag=True
+    ret_list = None
+    if local_flag:
+        if first_flag:
+            local_list.append([0])
+            ret_list = np.array(local_list)
+            print(f'ret_list:{ret_list}')
+            first_flag=False
+    if array_flag:
+        if first_flag:
+            ret_list = np.array(array_list)
+            first_flag=False
+        else:
+            array_list.append([0])
+            print(f'ret_list:{ret_list}')
+            print(f'array_list:{array_list}')
+            ret_list = ret_list + np.array(array_list)
+    if pointer_flag:
+        if first_flag:
+            ret_list = np.array(pointer_list)
+            first_flag=False
+        else:
+            pointer_list.append([0])
+            ret_list = ret_list + np.array(pointer_list)
+    ret_list = ret_list[0:ret_list.shape[0]-1]
     print(f'ret_list:{ret_list}')
     print(address_dictionary)
     print('完了！')
