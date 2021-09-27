@@ -96,7 +96,7 @@ class Trace:
         
         pointer_value_label = frk.LabelK()
         pointer_value_label.layout = "{},{},{},{}".format(row+7,col+3,2,1)
-        pointer_value_label["relief"] = 'groove'
+        pointer_value_label["relief"] = 'flat'
 
         self.trace_object.append(type_label) #0
         self.trace_object.append(name_label) #1
@@ -115,7 +115,7 @@ class Trace:
                 elif self.dict_name2tokenType[value_name] == 'array':
                     tk.messagebox.showinfo(f'{value_name} information',f'配列の型:{self.dict_name2type[value_name]}\n配列名:{value_name}\n配列の先頭のアドレス:{self.address_dict[value_name]}')
                 elif self.dict_name2tokenType[value_name] == 'pointer':
-                    for i in range(self.exist_object):
+                    for i in range(len(self.exist_object)):
                         if value_value == self.exist_object[i][0]["text"]:
                             value_value = self.exist_object[i][1]["text"]
                     tk.messagebox.showinfo(f'{value_name} information',f'ポインタの型:{self.dict_name2type[value_name]}\nポインタ名:{value_name}\nポインタの指す先が持つ値:{value_value}')
@@ -360,6 +360,7 @@ class Trace:
         self.trace_object[3]["text"] = '<---'
         self.trace_object[4]["text"] = before_value
         self.trace_object[5]["text"] = ''
+        self.trace_object[5]["relief"] = 'flat'
         if token_type == 'pointer':
             self.trace_object[3]["text"] = '--->'
             self.trace_object[4]["text"] = ''
@@ -369,6 +370,7 @@ class Trace:
             for i in range(len(self.exist_object)):
                 if value_ == self.exist_object[i][0]["text"]:
                     self.trace_object[5]["text"] = self.exist_object[i][1]["text"]
+                    self.trace_object[5]["relief"] = 'groove'
                     break
 
 
@@ -460,6 +462,7 @@ class Trace:
         self.trace_object[3]["text"] = '<---'
         self.trace_object[4]["text"] = before_value
         self.trace_object[5]["text"] = ''
+        self.trace_object[5]["relief"] = 'flat'
         if token_type == 'pointer':
             self.trace_object[3]["text"] = '--->'
             self.trace_object[4]["text"] = ''
@@ -470,8 +473,9 @@ class Trace:
                 print(self.exist_object[i][0]["text"])
                 if value_ == self.exist_object[i][0]["text"]:
                     self.trace_object[5]["text"] = self.exist_object[i][1]["text"]
+                    self.trace_object[5]["relief"] = 'groove'
                     break
-        if before_value != '': #highlightされた部分が代入文ならば...
+        if value_type != '': #highlightされた部分が代入文ならば...
             self.trace_object[2]["relief"] = "groove" # value表示に枠線を追加
             self.trace_object[4]["relief"] = "groove"
         else:
