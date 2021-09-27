@@ -27,4 +27,4 @@ C言語のデバッガのGDBをプログラミング初心者が馴染みやす�
 python3 Multishow.py
 ```
 3．以下の動画のように操作を行うことが出来る．
-
+![result](https://github.com/i17oonaka-h/C_Learning/blob/main/c_learning_edited.gif)
